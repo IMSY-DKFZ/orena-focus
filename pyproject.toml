@@ -1,0 +1,90 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "orena-focus"
+dynamic = ["version"]
+description = "Utilities for the ORena SAVE FOCUS challenge: Foreign Object Contextual Understanding for Safe Surgical AI"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+  { name = "Patrick Godau", email = "patrick.godau@dkfz-heidelberg.de" },
+  { name = "Lucas Luttner", email = "lucas.luttner@dkfz-heidelberg.de" },
+  { name = "Leon Mayer", email = "leon.mayer@dkfz-heidelberg.de" }
+]
+keywords = [
+    "surgical-ai",
+    "vision-language-model",
+    "foreign-objects",
+    "laparoscopy",
+    "vqa",
+    "miccai",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+    "datasets>=2.14.0",
+    "decord>=0.6.0",
+    "huggingface-hub>=0.17.0",
+    "matplotlib>=3.5.0",
+    "numpy>=1.23.0",
+    "opencv-python>=4.8.0",
+    "pandas>=2.0",
+    "pillow>=9.0",
+    "progiter>=0.12.0",
+    "tiktoken>=0.5.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "transformers>=4.30.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+dev = [
+    "orena-focus[test]",
+    "ruff>=0.4",
+    "mypy>=1.8",
+]
+
+[project.urls]
+Homepage = "https://or-arena.org/"
+Repository = "https://github.com/IMSY-DKFZ/orena-focus"
+
+[tool.hatch.version]
+path = "src/focus/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/focus"]
+artifacts = ["src/focus/py.typed"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
