@@ -91,7 +91,7 @@ print(summary_df)
 
 Five capability groups, each composed of leaf capabilities assigned to questions.
 
-![SAVE FOCUS capability taxonomy with example questions](https://raw.githubusercontent.com/IMSY-DKFZ/orena-focus/main/src/focus/assets/SAVE_FOCUS_Capabilities.png)
+![SAVE FOCUS capability taxonomy with example questions](https://github.com/IMSY-DKFZ/orena-focus/blob/main/src/focus/assets/SAVE_FOCUS_Capabilities.png?raw=true)
 
 | # | Group | Leaf capabilities |
 |---|-------|-------------------|
