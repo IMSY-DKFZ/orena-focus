@@ -15,7 +15,7 @@
 
 <br>
 
-Python utilities for the **FOCUS datasets and challenge** — *Foreign Object Contextual Understanding for Safe Surgical AI*.
+Python utilities for the **FOCUS datasets and challenge** — *Foreign Object Contextual Understanding for Surgery*.
 
 The library provides dataset loaders, preprocessing pipelines, answer-format handling, and an evaluation framework for working with the FOCUS surgical VQA datasets. It can be used independently for research on foreign-object understanding in minimally invasive surgery, and also serves as the official toolkit for the [ORena SAVE FOCUS challenge](https://or-arena.org/) at MICCAI 2026.
 
@@ -29,9 +29,9 @@ FOCUS offers three participation tracks, each requiring a different type of visu
 
 | Track | `Track` enum | Visual input | Description |
 |-------|-------------|--------------|-------------|
-| **Frame** | `Track.FRAME` | Single frame | Answer questions from one extracted video frame. The simplest entry point — no temporal modelling required. |
-| **Segment** | `Track.SEGMENT` | Short clip | Answer questions from a multi-second video segment surrounding the relevant event. Requires understanding of motion and temporal context. |
-| **Procedure** | `Track.PROCEDURE` | Full video | Answer questions that may require reasoning over an entire surgical procedure, including events that happened well before or after the queried moment. |
+| **FRAME** | `Track.FRAME` | Single frame | Answer questions from one extracted video frame. The simplest entry point — no temporal modelling required. |
+| **SEGMENT** | `Track.SEGMENT` | <= 5min clip | Answer questions from a multi-second video segment surrounding the relevant event. Requires understanding of motion and temporal context. |
+| **PROCEDURE** | `Track.PROCEDURE` | Up to full video | Answer questions that may require reasoning over an entire surgical procedure, including events that happened well before or after the queried moment. |
 
 Participants may enter any subset of tracks. Each track is evaluated independently with the same hierarchical capability taxonomy.
 
@@ -126,4 +126,4 @@ The HeiCo data is released under [CC BY-NC-SA 4.0](https://creativecommons.org/l
 
 ## License
 
-MIT (library code) — see [Dataset](#dataset) for the data license.
+The code is licensed under the permissive [MIT license](https://github.com/IMSY-DKFZ/orena-focus/blob/main/LICENSE). The underlying data is licensed independently, see [Dataset](#dataset) for the data license.
