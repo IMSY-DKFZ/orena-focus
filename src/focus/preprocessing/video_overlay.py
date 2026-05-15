@@ -90,22 +90,23 @@ class VideoTimestampOverlayPreprocessor:
     def _process_video(self, args: tuple[Path, Path]) -> tuple[bool, str]:
         """Overlay timestamps on a single video and write the result to disk.
 
-        Reads ``video_path`` frame-by-frame, computes the elapsed time from the
-        frame index and the video's FPS, draws the ``hh:mm:ss`` string into the
-        frame, and writes the annotated frame to ``target_path`` as an MP4.
-        The source file is not modified.
+        Reads *video_path* frame-by-frame, computes the elapsed time from the
+        frame index and the video's FPS, draws the ``HH:MM:SS`` string with
+        ``cv2.putText``, and writes the annotated frames to *target_path* as an
+        MPEG-4 MP4.  Progress is tracked per frame via a :class:`~progiter.ProgIter`
+        bar.  The source file is not modified.
 
         Parameters
         ----------
         args : tuple[Path, Path]
-            ``(video_path, target_path)`` where *video_path* is the source video
-            and *target_path* is the destination MP4 file.
+            ``(video_path, target_path)`` where *video_path* is the source
+            video and *target_path* is the destination MP4 file.
 
         Returns
         -------
         tuple[bool, str]
             ``(True, success_message)`` on success, ``(False, error_message)``
-            if any exception is raised.
+            if any exception is raised during capture or encoding.
         """
         video_path, target_path = args
         try:
@@ -122,39 +123,38 @@ class VideoTimestampOverlayPreprocessor:
             out = cv2.VideoWriter(str(target_path), fourcc, fps, (frame_width, frame_height))
 
             frame_idx = 0
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
+            with ProgIter(total=frame_count, desc=video_path.name, verbose=1) as pbar:
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
 
-                total_secs = int(frame_idx / fps)
-                h, m, s = (
-                    total_secs // 3600,
-                    (total_secs % 3600) // 60,
-                    total_secs % 60,
-                )
-                timestamp = f"{h:02d}:{m:02d}:{s:02d}"
-
-                cv2.putText(
-                    img=frame,
-                    text=timestamp,
-                    org=self.text_org,
-                    fontFace=self.text_font_face,
-                    fontScale=self.text_scale,
-                    color=self.text_color,
-                    thickness=max(1, int(self.text_scale * 2)),
-                    lineType=self.text_line_type,
-                )
-
-                out.write(frame)
-                frame_idx += 1
+                    total_secs = int(frame_idx / fps)
+                    h, m, s = (
+                        total_secs // 3600,
+                        (total_secs % 3600) // 60,
+                        total_secs % 60,
+                    )
+                    cv2.putText(
+                        img=frame,
+                        text=f"{h:02d}:{m:02d}:{s:02d}",
+                        org=self.text_org,
+                        fontFace=self.text_font_face,
+                        fontScale=self.text_scale,
+                        color=self.text_color,
+                        thickness=max(1, int(self.text_scale * 2)),
+                        lineType=self.text_line_type,
+                    )
+                    out.write(frame)
+                    frame_idx += 1
+                    pbar.update(1)
 
             cap.release()
             out.release()
             return True, f"Success: {video_path.name} ({frame_count} frames)"
 
         except Exception as e:
-            return False, f"Error: {video_path.name} - {str(e)}"
+            return False, f"Error: {video_path.name} — {e}"
 
     def process(
         self,
@@ -245,6 +245,7 @@ class VideoTimestampOverlayPreprocessor:
                 ProgIter(
                     executor.map(self._process_video, tasks),
                     total=len(tasks),
+                    desc="Videos",
                 )
             )
 
