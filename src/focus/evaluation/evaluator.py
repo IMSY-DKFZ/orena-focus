@@ -290,10 +290,14 @@ class Evaluator:
             boots = np.empty(self._n_boot)
             for b in range(self._n_boot):
                 sampled = rng.choice(video_keys, size=n_videos, replace=True)
-                boots[b] = float(np.mean([
-                    rng.choice(vid_groups[v], size=len(vid_groups[v]), replace=True).mean()
-                    for v in sampled
-                ]))
+                boots[b] = float(
+                    np.mean(
+                        [
+                            rng.choice(vid_groups[v], size=len(vid_groups[v]), replace=True).mean()
+                            for v in sampled
+                        ]
+                    )
+                )
             return point_mean, float(np.percentile(boots, 2.5)), float(np.percentile(boots, 97.5))
 
         def _to_group(val: str) -> str:
@@ -309,30 +313,54 @@ class Evaluator:
 
         for leaf, leaf_df in df.groupby("primary"):
             mean, low, high = _bootstrap(leaf_df)
-            rows.append({
-                "level": "leaf", "name": str(leaf),
-                "accuracy": mean, "ci_low": low, "ci_high": high, "count": len(leaf_df),
-            })
+            rows.append(
+                {
+                    "level": "leaf",
+                    "name": str(leaf),
+                    "accuracy": mean,
+                    "ci_low": low,
+                    "ci_high": high,
+                    "count": len(leaf_df),
+                }
+            )
 
         for grp, grp_df in df.groupby("group"):
             mean, low, high = _bootstrap(grp_df)
-            rows.append({
-                "level": "group", "name": str(grp),
-                "accuracy": mean, "ci_low": low, "ci_high": high, "count": len(grp_df),
-            })
+            rows.append(
+                {
+                    "level": "group",
+                    "name": str(grp),
+                    "accuracy": mean,
+                    "ci_low": low,
+                    "ci_high": high,
+                    "count": len(grp_df),
+                }
+            )
 
         for fmt, fmt_df in df.groupby("answer_format"):
             mean, low, high = _bootstrap(fmt_df)
-            rows.append({
-                "level": "answer_format", "name": str(fmt),
-                "accuracy": mean, "ci_low": low, "ci_high": high, "count": len(fmt_df),
-            })
+            rows.append(
+                {
+                    "level": "answer_format",
+                    "name": str(fmt),
+                    "accuracy": mean,
+                    "ci_low": low,
+                    "ci_high": high,
+                    "count": len(fmt_df),
+                }
+            )
 
         mean, low, high = _bootstrap(df)
-        rows.append({
-            "level": "overall", "name": "MEAN",
-            "accuracy": mean, "ci_low": low, "ci_high": high, "count": len(df),
-        })
+        rows.append(
+            {
+                "level": "overall",
+                "name": "MEAN",
+                "accuracy": mean,
+                "ci_low": low,
+                "ci_high": high,
+                "count": len(df),
+            }
+        )
 
         result = pd.DataFrame(rows)
         logger.debug(f"Summary — overall={mean:.3f} [{low:.3f}, {high:.3f}]")

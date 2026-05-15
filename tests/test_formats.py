@@ -209,6 +209,7 @@ class TestMultipleChoice:
 
     def test_is_judge_format(self):
         from focus.data.formats import JUDGE_FORMATS
+
         assert "multiple_choice" in JUDGE_FORMATS
 
 

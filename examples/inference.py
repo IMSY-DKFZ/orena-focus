@@ -210,7 +210,7 @@ def main() -> None:
         return
 
     # ── 4. Evaluation ─────────────────────────────────────────────────
-    results_df, summary_df = Evaluator(judge_kwargs={'device': CONFIG["device"]}).run(
+    results_df, summary_df = Evaluator(judge_kwargs={"device": CONFIG["device"]}).run(
         requests=requests,
         references=references,
         responses=responses,
