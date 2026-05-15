@@ -200,19 +200,16 @@ class TestMatching:
 
 
 class TestMultipleChoice:
-    def setup_method(self):
-        self.fmt = MultipleChoice(choices=("A", "B", "C"))
+    def test_read_strips_whitespace(self):
+        assert MultipleChoice().read("  B  ") == "B"
 
-    def test_read_valid(self):
-        assert self.fmt.read("B") == "B"
-
-    def test_verify_invalid(self):
+    def test_verify_too_long(self):
         with pytest.raises(ValueError):
-            self.fmt.verify("D")
+            MultipleChoice(max_length=3).verify("toolong")
 
-    def test_case_sensitive(self):
-        with pytest.raises(ValueError):
-            self.fmt.verify("a")
+    def test_is_judge_format(self):
+        from focus.data.formats import JUDGE_FORMATS
+        assert "multiple_choice" in JUDGE_FORMATS
 
 
 # ── Time ─────────────────────────────────────────────────────────────

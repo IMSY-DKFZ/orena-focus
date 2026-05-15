@@ -228,21 +228,10 @@ class Matching(_FormatBase):
 
 
 @register_format
-class MultipleChoice(_FormatBase):
-    """Accepts exactly one of a predefined set of options (case-sensitive after strip)."""
+class MultipleChoice(OpenEnded):
+    """Free-form answer for multiple-choice questions, evaluated by an LLM judge."""
 
     type = "multiple_choice"
-
-    def __init__(self, choices: tuple[str, ...]):
-        self.choices = choices
-
-    def verify(self, text: str) -> None:
-        if text.strip() not in self.choices:
-            raise ValueError(f"Answer must be one of {self.choices}, got {text!r}")
-
-    def read(self, text: str) -> str:
-        self.verify(text)
-        return text.strip()
 
 
 @register_format
@@ -295,4 +284,4 @@ AnswerFormat = Union[  # noqa: UP007
 ]
 
 # Formats that require LLM-as-a-judge evaluation rather than exact matching
-JUDGE_FORMATS: frozenset[str] = frozenset({"open_ended", "matching"})
+JUDGE_FORMATS: frozenset[str] = frozenset({"open_ended", "matching", "multiple_choice"})
