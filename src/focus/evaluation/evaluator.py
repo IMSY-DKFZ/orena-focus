@@ -14,6 +14,20 @@ Usage::
     results_df, summary_df = evaluator.run(
         dataset.requests, dataset.references, responses
     )
+
+To use API-based judges instead of HuggingFace models::
+
+    from focus.evaluation import Evaluator, APIJudge
+
+    api_judge = APIJudge(
+        api_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key="your-api-key",
+        model_name="openai/gpt-4"
+    )
+    evaluator = Evaluator(judges=[api_judge])
+    results_df, summary_df = evaluator.run(
+        dataset.requests, dataset.references, responses
+    )
 """
 
 from __future__ import annotations
@@ -44,16 +58,22 @@ class Evaluator:
         ``lazy_judge=True`` (default), a single :class:`~focus.evaluation.judges.TransformersJudge`
         is instantiated on the first open-ended question encountered.  When
         ``None`` and ``lazy_judge=False``, it is instantiated immediately.
+        Can include any combination of :class:`~focus.evaluation.judges.TransformersJudge`
+        and :class:`~focus.evaluation.judges.APIJudge` instances.
     adversarial_detector : AdversarialDetector or None, optional
         Detector used to scan responses for prompt-injection attempts.
         Defaults to the built-in :class:`~focus.evaluation.adversarial.AdversarialDetector`.
     lazy_judge : bool, optional
         Defer judge model loading until an open-ended question is actually
-        encountered.  Default ``True``.
+        encountered. Only applies when *judges* is ``None``.  Default ``True``.
     judge_kwargs : dict or None, optional
         Keyword arguments forwarded to the default
         :class:`~focus.evaluation.judges.TransformersJudge` when *judges* is
-        ``None``.
+        ``None``. Ignored if custom judges are provided.
+    n_boot : int, optional
+        Number of bootstrap samples for confidence intervals. Default ``1000``.
+    seed : int, optional
+        Random seed for reproducible bootstrap sampling. Default ``42``.
     """
 
     def __init__(
