@@ -390,3 +390,103 @@ class TestAPIJudge:
 
             results, _ = evaluator.run([req], [ref], [resp])
             assert bool(results.loc[0, "correctness"]) is True
+
+
+class TestEvaluatorThreading:
+    """Test that single-thread and multi-thread evaluation produce identical results."""
+
+    def test_api_judge_deterministic_with_threading(self):
+        """Verify that num_workers=1 and num_workers>1 produce same results with APIJudge."""
+        with patch("requests.post") as mock_post:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"choices": [{"message": {"content": "CORRECT"}}]}
+            mock_post.return_value = mock_response
+
+            api_judge = APIJudge(
+                api_url="https://api.example.com/v1/chat/completions",
+                api_key="test-key",
+                model_name="test-model",
+            )
+
+            # Create multiple questions with different formats
+            requests_list = [make_request(qid=f"q{i}") for i in range(5)]
+            references_list = [
+                make_reference(fmt="open_ended", answer=f"ans{i}", qid=f"q{i}") for i in range(5)
+            ]
+            responses_list = [make_response(content=f"ans{i}", qid=f"q{i}") for i in range(5)]
+
+            # Run with sequential evaluation
+            evaluator_seq = Evaluator(judges=[api_judge], num_workers=1)
+            results_seq, summary_seq = evaluator_seq.run(
+                requests_list, references_list, responses_list
+            )
+
+            # Reset mock call count
+            mock_post.reset_mock()
+
+            # Run with parallel evaluation
+            evaluator_par = Evaluator(judges=[api_judge], num_workers=4)
+            results_par, summary_par = evaluator_par.run(
+                requests_list, references_list, responses_list
+            )
+
+            # Verify results are identical
+            assert len(results_seq) == len(results_par)
+            assert (results_seq["correctness"] == results_par["correctness"]).all()
+            assert (results_seq["qID"] == results_par["qID"]).all()
+            assert (results_seq["answer_format"] == results_par["answer_format"]).all()
+
+            # Verify summary is identical
+            assert len(summary_seq) == len(summary_par)
+            assert (summary_seq["accuracy"].values == summary_par["accuracy"].values).all()
+            assert (summary_seq["count"].values == summary_par["count"].values).all()
+
+    def test_mixed_formats_deterministic_with_threading(self):
+        """Test determinism with mixed answer formats (binary, number, open-ended)."""
+        with patch("requests.post") as mock_post:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"choices": [{"message": {"content": "CORRECT"}}]}
+            mock_post.return_value = mock_response
+
+            api_judge = APIJudge(
+                api_url="https://api.example.com/v1/chat/completions",
+                api_key="test-key",
+                model_name="test-model",
+            )
+
+            # Create requests with mixed formats
+            requests_list = [
+                make_request(qid="q1"),
+                make_request(qid="q2"),
+                make_request(qid="q3"),
+                make_request(qid="q4"),
+            ]
+
+            references_list = [
+                make_reference(fmt="binary", answer="yes", qid="q1"),
+                make_reference(fmt="number", answer="42", qid="q2"),
+                make_reference(fmt="open_ended", answer="surgical answer", qid="q3"),
+                make_reference(fmt="binary", answer="no", qid="q4"),
+            ]
+
+            responses_list = [
+                make_response(content="yes", qid="q1"),
+                make_response(content="42", qid="q2"),
+                make_response(content="surgical answer", qid="q3"),
+                make_response(content="no", qid="q4"),
+            ]
+
+            # Sequential
+            evaluator_seq = Evaluator(judges=[api_judge], num_workers=1)
+            results_seq, _ = evaluator_seq.run(requests_list, references_list, responses_list)
+
+            mock_post.reset_mock()
+
+            # Parallel
+            evaluator_par = Evaluator(judges=[api_judge], num_workers=4)
+            results_par, _ = evaluator_par.run(requests_list, references_list, responses_list)
+
+            # Compare results
+            assert len(results_seq) == len(results_par) == 4
+            assert (results_seq["correctness"] == results_par["correctness"]).all()
+            assert (results_seq["answer_format"] == results_par["answer_format"]).all()
