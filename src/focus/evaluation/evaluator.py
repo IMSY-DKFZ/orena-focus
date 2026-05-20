@@ -33,6 +33,7 @@ To use API-based judges instead of HuggingFace models::
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +71,10 @@ class Evaluator:
         Keyword arguments forwarded to the default
         :class:`~focus.evaluation.judges.TransformersJudge` when *judges* is
         ``None``. Ignored if custom judges are provided.
+    num_workers : int, optional
+        Number of worker threads for parallel evaluation of questions.
+        Use ``1`` for sequential evaluation, or higher values (e.g., ``4``,
+        ``8``) for parallel API calls. Default ``1`` (sequential).
     n_boot : int, optional
         Number of bootstrap samples for confidence intervals. Default ``1000``.
     seed : int, optional
@@ -82,11 +87,13 @@ class Evaluator:
         adversarial_detector: AdversarialDetector | None = None,
         lazy_judge: bool = True,
         judge_kwargs: dict[str, Any] | None = None,
+        num_workers: int = 1,
         n_boot: int = 1000,
         seed: int = 42,
     ) -> None:
         self._detector = adversarial_detector or AdversarialDetector()
         self._judge_kwargs = judge_kwargs or {}
+        self._num_workers = num_workers
         self._n_boot = n_boot
         self._seed = seed
 
@@ -167,20 +174,39 @@ class Evaluator:
         rows: list[dict[str, Any]] = []
         n_missing = 0
 
+        # Prepare evaluation tasks
+        tasks = []
         for qid, ref in ref_map.items():
             req = req_map[qid]
             resp = resp_map.get(qid)
+            tasks.append((qid, req, ref, resp))
 
+        # Process questions in parallel using ThreadPoolExecutor
+        def _process_question(
+            qid: str, req: Request, ref: Reference, resp: Response | None
+        ) -> tuple:
             if resp is None:
-                n_missing += 1
-                logger.debug(f"[{qid}] no response — marking incorrect.")
-                rows.append(self._make_row(qid, req, ref, latency=0.0, correct=False))
-                continue
+                # (qid, req, ref, latency, correct, is_missing)
+                return (qid, req, ref, 0.0, False, True)
 
             self._detector.check(resp.content, qID=qid)
             correct = self._evaluate_single(req, ref, resp)
-            logger.debug(f"[{qid}] correct={correct}, latency={resp.latency:.2f}s.")
-            rows.append(self._make_row(qid, req, ref, latency=resp.latency, correct=correct))
+            return (qid, req, ref, resp.latency, correct, False)
+
+        with ThreadPoolExecutor(max_workers=self._num_workers) as executor:
+            futures = [
+                executor.submit(_process_question, qid, req, ref, resp)
+                for qid, req, ref, resp in tasks
+            ]
+
+            for future in futures:
+                qid, req, ref, latency, correct, is_missing = future.result()
+                if is_missing:
+                    n_missing += 1
+                    logger.debug(f"[{qid}] no response — marking incorrect.")
+                else:
+                    logger.debug(f"[{qid}] correct={correct}, latency={latency:.2f}s.")
+                rows.append(self._make_row(qid, req, ref, latency, correct))
 
         if n_missing:
             logger.warning(

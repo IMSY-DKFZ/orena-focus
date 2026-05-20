@@ -29,10 +29,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any
 
-try:
-    import requests
-except ImportError:
-    requests = None
+import requests
 
 from focus.data.data_models import Request
 from focus.foreign_objects import FO_DEFINITIONS_FILE
@@ -274,11 +271,6 @@ class APIJudge(Judge):
         extra_headers: dict[str, str] | None = None,
         extra_body_params: dict[str, Any] | None = None,
     ) -> None:
-        if requests is None:
-            raise ImportError(
-                "APIJudge requires the 'requests' package. Install with: pip install requests"
-            )
-
         self._api_url = api_url
         self._api_key = api_key
         self._model_name = model_name

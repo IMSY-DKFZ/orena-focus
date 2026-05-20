@@ -6,7 +6,6 @@ when:
 
 - You want to use larger, more capable models like GPT-4 or GPT-3.5
 - You don't have GPU resources for running local models
-- You want to leverage provider-specific features (e.g., latency tracking, cost analysis)
 - You want to use multiple judges from different providers for ensemble evaluation
 
 Pipeline:
@@ -18,8 +17,6 @@ Pipeline:
 
 Prerequisites
 -------------
-    pip install orena-focus requests
-
 The dataset must have been downloaded and split beforehand — see
 ``examples/data_preparation.py``.  You also need API credentials for your
 chosen provider (OpenRouter, OpenAI, Anthropic, etc.).
@@ -61,6 +58,8 @@ CONFIG = {
     "responses_file": "/data/focus/responses/segment_test_responses.json",
     # Optional: write results.csv and summary.csv here
     "output_dir": None,
+    # Number of worker threads for parallel evaluation (1=sequential, 4-8 for API judges)
+    "num_workers": 4,
 }
 
 # ── API Judge Configuration ───────────────────────────────────────────
@@ -173,10 +172,10 @@ def main() -> None:
     # ── 4. Evaluate ───────────────────────────────────────────────────
     # API judges are only invoked for open-ended and matching questions
     if judges:
-        evaluator = Evaluator(judges=judges)
+        evaluator = Evaluator(judges=judges, num_workers=CONFIG["num_workers"])
     else:
         # Use default TransformersJudge if no API judges are configured
-        evaluator = Evaluator()
+        evaluator = Evaluator(num_workers=CONFIG["num_workers"])
 
     logger.info("Starting evaluation…")
     results_df, summary_df = evaluator.run(
