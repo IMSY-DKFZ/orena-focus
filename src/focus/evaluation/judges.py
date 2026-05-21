@@ -7,16 +7,29 @@ Multiple judges can be used; a majority vote determines the final outcome.
 
 Usage::
 
-    from focus.evaluation.judges import TransformersJudge
+    from focus.evaluation.judges import TransformersJudge, APIJudge
 
     judge = TransformersJudge()  # loads default Qwen/Qwen3.5-4B
     verdict = judge.judge(request, reference_answer, model_response)
+
+You can also use an API-based judge::
+
+    api_judge = APIJudge(
+        api_url="https://openrouter.ai/api/v1/chat/completions",
+        api_key="your-api-key",
+        model_name="openai/gpt-4"
+    )
+    verdict = api_judge.judge(request, reference_answer, model_response)
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from abc import ABC, abstractmethod
+from typing import Any
+
+import requests
 
 from focus.data.data_models import Request
 from focus.foreign_objects import FO_DEFINITIONS_FILE
@@ -211,6 +224,123 @@ class TransformersJudge(Judge):
             f"raw={raw!r} verdict={'CORRECT' if verdict else 'INCORRECT'}"
         )
         return verdict
+
+
+# ── API-based judge ─────────────────────────────────────────────────
+
+
+class APIJudge(Judge):
+    """LLM judge backed by a generic LLM API endpoint.
+
+    Supports providers with OpenAI-compatible API interfaces (OpenRouter, etc.).
+    The API endpoint must accept requests with the following format:
+    - POST to the API URL
+    - Headers: Authorization: Bearer <api_key>
+    - JSON body with model, messages, and optional parameters
+
+    Parameters
+    ----------
+    api_url : str
+        The API endpoint URL (e.g., "https://openrouter.ai/api/v1/chat/completions").
+    api_key : str
+        The API authentication key.
+    model_name : str
+        The model identifier as recognized by the API provider.
+    max_retries : int, optional
+        Number of retry attempts for API calls. Default ``3``.
+    timeout : int, optional
+        Request timeout in seconds. Default ``30``.
+    extra_headers : dict or None, optional
+        Additional HTTP headers to include in requests (e.g., site URL for OpenRouter).
+    extra_body_params : dict or None, optional
+        Additional parameters to include in the request body (e.g., temperature, top_p).
+
+    Raises
+    ------
+    ImportError
+        If the ``requests`` package is not installed.
+    """
+
+    def __init__(
+        self,
+        api_url: str,
+        api_key: str,
+        model_name: str,
+        max_retries: int = 3,
+        timeout: int = 30,
+        extra_headers: dict[str, str] | None = None,
+        extra_body_params: dict[str, Any] | None = None,
+    ) -> None:
+        self._api_url = api_url
+        self._api_key = api_key
+        self._model_name = model_name
+        self._max_retries = max_retries
+        self._timeout = timeout
+        self._extra_headers = extra_headers or {}
+        self._extra_body_params = extra_body_params or {}
+
+        logger.info(f"Initialized APIJudge with model {model_name!r} at {api_url!r}.")
+
+    def judge(self, request: Request, reference: str, candidate: str) -> bool:
+        messages = build_judge_prompt(request, reference, candidate)
+
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+        headers.update(self._extra_headers)
+
+        body = {
+            "model": self._model_name,
+            "messages": messages,
+            "max_tokens": 10,
+        }
+        body.update(self._extra_body_params)
+
+        last_error = None
+        for attempt in range(self._max_retries):
+            try:
+                response = requests.post(
+                    self._api_url,
+                    headers=headers,
+                    json=body,
+                    timeout=self._timeout,
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                # Extract content from response (OpenAI-compatible format)
+                if "choices" in data and len(data["choices"]) > 0:
+                    raw = data["choices"][0].get("message", {}).get("content", "").strip().upper()
+                else:
+                    logger.warning(f"Unexpected API response format: {data}")
+                    return False
+
+                verdict = "CORRECT" in raw and "INCORRECT" not in raw
+                logger.debug(
+                    f"[{request.qID}] judge={self._model_name!r} "
+                    f"raw={raw!r} verdict={'CORRECT' if verdict else 'INCORRECT'}"
+                )
+                return verdict
+
+            except requests.exceptions.RequestException as e:
+                last_error = e
+                if attempt < self._max_retries - 1:
+                    wait_time = 2**attempt
+                    logger.warning(
+                        f"API request failed (attempt {attempt + 1}/{self._max_retries}): {e}. "
+                        f"Retrying in {wait_time}s…"
+                    )
+                    time.sleep(wait_time)
+                else:
+                    logger.error(
+                        f"[{request.qID}] API judge failed after {self._max_retries} attempts: {e}"
+                    )
+
+        logger.error(
+            f"[{request.qID}] All API retries exhausted. Marking incorrect. Error: {last_error}"
+        )
+        return False
 
 
 # ── majority-vote helper ─────────────────────────────────────────────

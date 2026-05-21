@@ -1,8 +1,11 @@
 """Tests for focus.evaluation.evaluator.Evaluator."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from focus.evaluation.evaluator import Evaluator
+from focus.evaluation.judges import APIJudge
 from focus.taxonomy import Capability
 from tests.conftest import make_reference, make_request, make_response
 
@@ -208,3 +211,282 @@ class TestHierarchicalSummary:
 
         summary = Evaluator()._hierarchical_summary(pd.DataFrame())
         assert summary.empty
+
+
+# ── API Judge Tests ───────────────────────────────────────────────────
+
+
+class TestAPIJudge:
+    def test_api_judge_creation(self):
+        """Test that APIJudge can be instantiated with required parameters."""
+        judge = APIJudge(
+            api_url="https://openrouter.ai/api/v1/chat/completions",
+            api_key="test-api-key",
+            model_name="openai/gpt-4",
+        )
+        assert judge._api_url == "https://openrouter.ai/api/v1/chat/completions"
+        assert judge._api_key == "test-api-key"
+        assert judge._model_name == "openai/gpt-4"
+
+    @patch("requests.post")
+    def test_api_judge_correct_verdict(self, mock_post):
+        """Test that APIJudge correctly identifies a correct answer."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"choices": [{"message": {"content": "CORRECT"}}]}
+        mock_post.return_value = mock_response
+
+        judge = APIJudge(
+            api_url="https://api.example.com/v1/chat/completions",
+            api_key="test-key",
+            model_name="test-model",
+        )
+
+        req = make_request()
+        ref = "The answer is yes"
+        candidate = "Yes, that's correct"
+
+        verdict = judge.judge(req, ref, candidate)
+        assert verdict is True
+
+    @patch("requests.post")
+    def test_api_judge_incorrect_verdict(self, mock_post):
+        """Test that APIJudge correctly identifies an incorrect answer."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"choices": [{"message": {"content": "INCORRECT"}}]}
+        mock_post.return_value = mock_response
+
+        judge = APIJudge(
+            api_url="https://api.example.com/v1/chat/completions",
+            api_key="test-key",
+            model_name="test-model",
+        )
+
+        req = make_request()
+        ref = "The answer is yes"
+        candidate = "No, that's wrong"
+
+        verdict = judge.judge(req, ref, candidate)
+        assert verdict is False
+
+    @patch("requests.post")
+    def test_api_judge_with_extra_headers(self, mock_post):
+        """Test that APIJudge includes extra headers in API requests."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"choices": [{"message": {"content": "CORRECT"}}]}
+        mock_post.return_value = mock_response
+
+        extra_headers = {
+            "X-OpenRouter-Title": "Test Site",
+            "HTTP-Referer": "https://example.com",
+        }
+
+        judge = APIJudge(
+            api_url="https://openrouter.ai/api/v1/chat/completions",
+            api_key="test-key",
+            model_name="openai/gpt-4",
+            extra_headers=extra_headers,
+        )
+
+        req = make_request()
+        judge.judge(req, "ref", "candidate")
+
+        # Verify that the headers were included in the POST request
+        call_kwargs = mock_post.call_args[1]
+        assert "X-OpenRouter-Title" in call_kwargs["headers"]
+        assert call_kwargs["headers"]["X-OpenRouter-Title"] == "Test Site"
+        assert "HTTP-Referer" in call_kwargs["headers"]
+
+    @patch("requests.post")
+    def test_api_judge_with_extra_body_params(self, mock_post):
+        """Test that APIJudge includes extra body parameters in requests."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"choices": [{"message": {"content": "CORRECT"}}]}
+        mock_post.return_value = mock_response
+
+        extra_params = {"temperature": 0.5, "top_p": 0.9}
+
+        judge = APIJudge(
+            api_url="https://api.example.com/v1/chat/completions",
+            api_key="test-key",
+            model_name="test-model",
+            extra_body_params=extra_params,
+        )
+
+        req = make_request()
+        judge.judge(req, "ref", "candidate")
+
+        # Verify that the extra params were included in the POST body
+        call_kwargs = mock_post.call_args[1]
+        body = call_kwargs["json"]
+        assert body.get("temperature") == 0.5
+        assert body.get("top_p") == 0.9
+
+    @patch("requests.post")
+    def test_api_judge_retry_on_failure(self, mock_post):
+        """Test that APIJudge retries on request failure."""
+        from requests.exceptions import ConnectionError
+
+        # First two attempts fail, third succeeds
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"choices": [{"message": {"content": "CORRECT"}}]}
+        mock_post.side_effect = [
+            ConnectionError("Connection failed"),
+            ConnectionError("Connection failed"),
+            mock_response,
+        ]
+
+        judge = APIJudge(
+            api_url="https://api.example.com/v1/chat/completions",
+            api_key="test-key",
+            model_name="test-model",
+            max_retries=3,
+        )
+
+        req = make_request()
+        verdict = judge.judge(req, "ref", "candidate")
+
+        assert verdict is True
+        assert mock_post.call_count == 3
+
+    @patch("requests.post")
+    def test_api_judge_exhausts_retries(self, mock_post):
+        """Test that APIJudge returns False when all retries are exhausted."""
+        from requests.exceptions import ConnectionError
+
+        mock_post.side_effect = ConnectionError("Connection failed")
+
+        judge = APIJudge(
+            api_url="https://api.example.com/v1/chat/completions",
+            api_key="test-key",
+            model_name="test-model",
+            max_retries=2,
+        )
+
+        req = make_request()
+        verdict = judge.judge(req, "ref", "candidate")
+
+        assert verdict is False
+        assert mock_post.call_count == 2
+
+    def test_evaluator_with_api_judge(self):
+        """Test that Evaluator works with APIJudge for open-ended questions."""
+        with patch("requests.post") as mock_post:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"choices": [{"message": {"content": "CORRECT"}}]}
+            mock_post.return_value = mock_response
+
+            api_judge = APIJudge(
+                api_url="https://api.example.com/v1/chat/completions",
+                api_key="test-key",
+                model_name="test-model",
+            )
+
+            evaluator = Evaluator(judges=[api_judge])
+
+            # Create open-ended question
+            req = make_request()
+            ref = make_reference(fmt="open_ended", answer="sample answer")
+            resp = make_response(content="sample answer")
+
+            results, _ = evaluator.run([req], [ref], [resp])
+            assert bool(results.loc[0, "correctness"]) is True
+
+
+class TestEvaluatorThreading:
+    """Test that single-thread and multi-thread evaluation produce identical results."""
+
+    def test_api_judge_deterministic_with_threading(self):
+        """Verify that num_workers=1 and num_workers>1 produce same results with APIJudge."""
+        with patch("requests.post") as mock_post:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"choices": [{"message": {"content": "CORRECT"}}]}
+            mock_post.return_value = mock_response
+
+            api_judge = APIJudge(
+                api_url="https://api.example.com/v1/chat/completions",
+                api_key="test-key",
+                model_name="test-model",
+            )
+
+            # Create multiple questions with different formats
+            requests_list = [make_request(qid=f"q{i}") for i in range(5)]
+            references_list = [
+                make_reference(fmt="open_ended", answer=f"ans{i}", qid=f"q{i}") for i in range(5)
+            ]
+            responses_list = [make_response(content=f"ans{i}", qid=f"q{i}") for i in range(5)]
+
+            # Run with sequential evaluation
+            evaluator_seq = Evaluator(judges=[api_judge], num_workers=1)
+            results_seq, summary_seq = evaluator_seq.run(
+                requests_list, references_list, responses_list
+            )
+
+            # Reset mock call count
+            mock_post.reset_mock()
+
+            # Run with parallel evaluation
+            evaluator_par = Evaluator(judges=[api_judge], num_workers=4)
+            results_par, summary_par = evaluator_par.run(
+                requests_list, references_list, responses_list
+            )
+
+            # Verify results are identical
+            assert len(results_seq) == len(results_par)
+            assert (results_seq["correctness"] == results_par["correctness"]).all()
+            assert (results_seq["qID"] == results_par["qID"]).all()
+            assert (results_seq["answer_format"] == results_par["answer_format"]).all()
+
+            # Verify summary is identical
+            assert len(summary_seq) == len(summary_par)
+            assert (summary_seq["accuracy"].values == summary_par["accuracy"].values).all()
+            assert (summary_seq["count"].values == summary_par["count"].values).all()
+
+    def test_mixed_formats_deterministic_with_threading(self):
+        """Test determinism with mixed answer formats (binary, number, open-ended)."""
+        with patch("requests.post") as mock_post:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"choices": [{"message": {"content": "CORRECT"}}]}
+            mock_post.return_value = mock_response
+
+            api_judge = APIJudge(
+                api_url="https://api.example.com/v1/chat/completions",
+                api_key="test-key",
+                model_name="test-model",
+            )
+
+            # Create requests with mixed formats
+            requests_list = [
+                make_request(qid="q1"),
+                make_request(qid="q2"),
+                make_request(qid="q3"),
+                make_request(qid="q4"),
+            ]
+
+            references_list = [
+                make_reference(fmt="binary", answer="yes", qid="q1"),
+                make_reference(fmt="number", answer="42", qid="q2"),
+                make_reference(fmt="open_ended", answer="surgical answer", qid="q3"),
+                make_reference(fmt="binary", answer="no", qid="q4"),
+            ]
+
+            responses_list = [
+                make_response(content="yes", qid="q1"),
+                make_response(content="42", qid="q2"),
+                make_response(content="surgical answer", qid="q3"),
+                make_response(content="no", qid="q4"),
+            ]
+
+            # Sequential
+            evaluator_seq = Evaluator(judges=[api_judge], num_workers=1)
+            results_seq, _ = evaluator_seq.run(requests_list, references_list, responses_list)
+
+            mock_post.reset_mock()
+
+            # Parallel
+            evaluator_par = Evaluator(judges=[api_judge], num_workers=4)
+            results_par, _ = evaluator_par.run(requests_list, references_list, responses_list)
+
+            # Compare results
+            assert len(results_seq) == len(results_par) == 4
+            assert (results_seq["correctness"] == results_par["correctness"]).all()
+            assert (results_seq["answer_format"] == results_par["answer_format"]).all()
