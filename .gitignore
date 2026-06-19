@@ -31,3 +31,4 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+orena-focus-utils.code-workspace

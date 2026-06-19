@@ -21,6 +21,8 @@ The library provides dataset loaders, preprocessing pipelines, answer-format han
 
 > **Challenge open for registration.** Submit your results and compete on the leaderboard at [orena-focus-challenge.org](https://orena-focus-challenge.org/).
 
+![Clinical use case](https://github.com/IMSY-DKFZ/orena-focus/blob/main/src/focus/assets/motivation.png?raw=true)
+
 Retained foreign objects are a life-threatening and preventable surgical complication. FOCUS benchmarks vision-language models on clinically relevant VQA tasks around detecting, counting, and reasoning about foreign objects in endoscopic video.
 
 ## Tracks
@@ -91,7 +93,7 @@ print(summary_df)
 
 Five capability groups, each composed of leaf capabilities assigned to questions.
 
-![SAVE FOCUS capability taxonomy with example questions](https://github.com/IMSY-DKFZ/orena-focus/blob/main/src/focus/assets/SAVE_FOCUS_Capabilities.png?raw=true)
+![SAVE FOCUS capability taxonomy with example questions](https://github.com/IMSY-DKFZ/orena-focus/blob/main/src/focus/assets/taxonomy.png?raw=true)
 
 | # | Group | Leaf capabilities |
 |---|-------|-------------------|
