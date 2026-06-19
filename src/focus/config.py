@@ -18,14 +18,12 @@ from pathlib import Path
 
 FOCUS_DATASETS = {
     "heico": "orena-dkfz/heico-focus-vqa",
-    # TODO: resolve, once second data batch is out
-    # "lapcholy": ""
+    "lapcholy": "orena-dkfz/lapchole-focus-vqa"
 }
 
 DATASET_BASE_FPS = {
     "heico": 25,
-    # TODO: insert, once second data batch is out
-    # "lapcholy": 30,
+    "lapcholy": 30,
 }
 
 _ENV_ROOT_DIR = "FOCUS_ROOT_DIR"

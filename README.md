@@ -6,9 +6,17 @@
 [![PyPI](https://img.shields.io/pypi/v/orena-focus?color=blue)](https://pypi.org/project/orena-focus/)
 [![Python](https://img.shields.io/pypi/pyversions/orena-focus)](https://pypi.org/project/orena-focus/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Data: CC BY-NC-SA 4.0](https://img.shields.io/badge/Data-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![MICCAI 2026](https://img.shields.io/badge/Challenge-MICCAI%202026-blue)](https://or-arena.org/)
+
+**HeiCo-FOCUS dataset**
+
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/Data-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Dataset-orena--dkfz%2Fheico--focus--vqa-blue)](https://huggingface.co/datasets/orena-dkfz/heico-focus-vqa)
+
+**LapChole-FOCUS dataset**
+
+[![License: Data Usage Agreement](https://img.shields.io/badge/License-CC%20Data--Usage--Agreement%204.0-lightgrey.svg)](https://huggingface.co/datasets/orena-dkfz/lapchole-focus-vqa/blob/main/LICENSE)
+[![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Dataset-orena--dkfz%2Flapchole--focus--vqa-blue)](https://huggingface.co/datasets/orena-dkfz/lapchole-focus-vqa)
 
 
 </div>
@@ -95,14 +103,6 @@ Five capability groups, each composed of leaf capabilities assigned to questions
 
 ![SAVE FOCUS capability taxonomy with example questions](https://github.com/IMSY-DKFZ/orena-focus/blob/main/src/focus/assets/taxonomy.png?raw=true)
 
-| # | Group | Leaf capabilities |
-|---|-------|-------------------|
-| 1 | Object Recognition | Identification, Instance Matching, Attributes, Spatial (camera), Spatial (situs) |
-| 2 | Temporal Grounding | Temporal Localization, Duration Estimation |
-| 3 | Aggregation | Object Aggregation, Event Aggregation |
-| 4 | Event & Procedural Understanding | FO Interaction Recognition, FO Usage Purpose, Temporal Ordering |
-| 5 | Complex Reasoning | Functional Reasoning, Causal & Consequence Reasoning, Multi-step Reasoning |
-
 ## Answer formats
 
 | Format | Accepts | Returns |
@@ -116,16 +116,28 @@ Five capability groups, each composed of leaf capabilities assigned to questions
 | `MultipleChoice` | One of predefined options | `str` |
 | `Time` | `hh:mm:ss` timestamps | `timedelta` |
 
-## Dataset
+## Datasets
+
+FOCUS builds upon two datasets: **HeiCo-FOCUS** (30 videos) and LapChole-FOCUS (170 videos).
+
+### HeiCo-FOCUS
 
 The QA annotations are publicly available on HuggingFace: **[orena-dkfz/heico-focus-vqa](https://huggingface.co/datasets/orena-dkfz/heico-focus-vqa)**.
 
-The FOCUS challenge is built on the **HeiCo** dataset. If you use this data, please cite the original publication:
+ **HeiCo-FOCUS** is built on the **HeiCo** dataset. If you use this data, please cite the original publication:
 
 > Maier-Hein, L., et al. (2021). *Heidelberg colorectal data set for surgical data science in the sensor operating room*. [https://doi.org/10.1038/s41597-021-00882-2](https://doi.org/10.1038/s41597-021-00882-2)
 
 The HeiCo data is released under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — non-commercial use only, with attribution and share-alike conditions.
 
+### LapChole-FOCUS
+
+The **LapChole-FOCUS** videos comprises unpublished laparoscopic cholecystectomy recordings. It is currently only available within the scope of the FOCUS-Challenge and will be publicly released after the Challenge has ended.
+
+To access it, send a request on HuggingFace: **[orena-dkfz/lapchole-focus-vqa](https://huggingface.co/datasets/orena-dkfz/lapchole-focus-vqa)**. To access and download the data you need to register yourself with HuggingFace. 
+
+Please find the data usage agreement at the dataset card or in the `LICENSE` file on HuggingFace.
+
 ## License
 
-The code is licensed under the permissive [MIT license](https://github.com/IMSY-DKFZ/orena-focus/blob/main/LICENSE). The underlying data is licensed independently, see [Dataset](#dataset) for the data license.
+The code is licensed under the permissive [MIT license](https://github.com/IMSY-DKFZ/orena-focus/blob/main/LICENSE). The underlying data is licensed independently, see [Dataset](#dataset) for the data licenses details.
