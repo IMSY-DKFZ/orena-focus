@@ -108,6 +108,10 @@ def main() -> None:
     overall = summary_df.loc[summary_df["level"] == "overall", "accuracy"].iloc[0]
     print(f"\nOverall macro-accuracy: {overall:.1%}")
 
+    pre_eval_row = summary_df[summary_df["level"] == "pre_evaluation"]
+    if not pre_eval_row.empty:
+        print(f"Pre-evaluation score  : {pre_eval_row['accuracy'].iloc[0]:.1%}")
+
     timeout_row = summary_df[summary_df["level"] == "latency"]
     if not timeout_row.empty:
         n_timed_out = int(timeout_row["count"].iloc[0])

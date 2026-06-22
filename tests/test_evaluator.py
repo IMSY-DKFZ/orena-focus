@@ -215,6 +215,90 @@ class TestHierarchicalSummary:
         assert summary.empty
 
 
+# ── pre-evaluation score ──────────────────────────────────────────────
+
+
+class TestPreEvaluationScore:
+    def _two_groups(self):
+        """4 questions: object_recognition (ID) + aggregation (OOD), mixed correctness."""
+        reqs, refs, resps = [], [], []
+        # object_recognition group, in-distribution: 1/2 correct → 0.5
+        for i, (ans, content) in enumerate([("1", "1"), ("1", "9")]):
+            qid = f"or{i}"
+            reqs.append(make_request(qid=qid))
+            refs.append(
+                make_reference(
+                    qid=qid,
+                    primary=Capability.OBJECT_IDENTIFICATION,
+                    fmt="number",
+                    answer=ans,
+                    ood=False,
+                )
+            )
+            resps.append(make_response(qid=qid, content=content))
+        # aggregation group, out-of-distribution: 2/2 correct → 1.0
+        for i, (ans, content) in enumerate([("0", "0"), ("2", "2")]):
+            qid = f"agg{i}"
+            reqs.append(make_request(qid=qid))
+            refs.append(
+                make_reference(
+                    qid=qid,
+                    primary=Capability.OBJECT_AGGREGATION,
+                    fmt="number",
+                    answer=ans,
+                    ood=True,
+                )
+            )
+            resps.append(make_response(qid=qid, content=content))
+        return reqs, refs, resps
+
+    def test_score_is_mean_over_buckets(self):
+        reqs, refs, resps = self._two_groups()
+        results, _ = _run(reqs, refs, resps)
+        score, buckets = Evaluator().pre_evaluation_score(results)
+        # two populated buckets: 0.5 (OR/ID) and 1.0 (AGG/OOD) → mean 0.75
+        assert len(buckets) == 2
+        assert score == pytest.approx(0.75)
+
+    def test_buckets_split_by_ood(self):
+        reqs, refs, resps = self._two_groups()
+        results, _ = _run(reqs, refs, resps)
+        _, buckets = Evaluator().pre_evaluation_score(results)
+        or_id = buckets[(buckets["group"] == "object_recognition") & (~buckets["ood"])]
+        agg_ood = buckets[(buckets["group"] == "aggregation") & (buckets["ood"])]
+        assert or_id["accuracy"].iloc[0] == pytest.approx(0.5)
+        assert agg_ood["accuracy"].iloc[0] == pytest.approx(1.0)
+
+    def test_timed_out_counts_as_incorrect(self):
+        req = make_request()
+        ref = make_reference(fmt="number", answer="3", ood=False)
+        resp = make_response(content="3", latency=20.0)  # correct content but too slow
+        results, _ = Evaluator().run([req], [ref], [resp], max_latency=10.0)
+        score, _ = Evaluator().pre_evaluation_score(results)
+        assert score == pytest.approx(0.0)
+
+    def test_missing_counts_as_incorrect(self):
+        req = make_request()
+        ref = make_reference(fmt="number", answer="3")
+        score, _ = Evaluator().pre_evaluation_score(_run([req], [ref], [])[0])
+        assert score == pytest.approx(0.0)
+
+    def test_summary_row_present(self):
+        reqs, refs, resps = self._two_groups()
+        _, summary = _run(reqs, refs, resps)
+        row = summary[summary["level"] == "pre_evaluation"]
+        assert not row.empty
+        assert row["accuracy"].iloc[0] == pytest.approx(0.75)
+        assert int(row["count"].iloc[0]) == 2
+
+    def test_empty_results(self):
+        import pandas as pd
+
+        score, buckets = Evaluator().pre_evaluation_score(pd.DataFrame())
+        assert pd.isna(score)
+        assert buckets.empty
+
+
 # ── latency limits ────────────────────────────────────────────────────
 
 

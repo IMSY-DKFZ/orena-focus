@@ -107,6 +107,14 @@ results_df, summary_df = Evaluator().run(
 print(summary_df)
 ```
 
+### Pre-evaluation score
+
+The pre-evaluation phase uses a single headline number: the unweighted mean over ten buckets — the five capability groups, each scored independently for in-distribution and out-of-distribution questions (flat per-question accuracy within each bucket). Missing and timed-out answers count as incorrect. It is reported as the `level="pre_evaluation"`, `name="SCORE"` row of `summary_df`, and can also be computed directly:
+
+```python
+score, buckets_df = Evaluator().pre_evaluation_score(results_df)
+```
+
 ## Capability taxonomy
 
 Five capability groups, each composed of leaf capabilities assigned to questions.

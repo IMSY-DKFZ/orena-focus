@@ -160,9 +160,12 @@ class Evaluator:
             Hierarchical accuracy summary with columns:
             ``level``, ``name``, ``accuracy``, ``ci_low``, ``ci_high``,
             ``count``.  Levels: ``"leaf"``, ``"group"``, ``"answer_format"``,
-            ``"overall"``.  When a latency limit is enforced, an additional
-            ``level="latency"``, ``name="timed_out"`` row reports the number of
-            responses that exceeded the limit.
+            ``"overall"``.  A ``level="pre_evaluation"``, ``name="SCORE"`` row
+            holds the pre-evaluation score (see :meth:`pre_evaluation_score`);
+            its ``count`` is the number of populated buckets averaged.  When a
+            latency limit is enforced, an additional ``level="latency"``,
+            ``name="timed_out"`` row reports the number of responses that
+            exceeded the limit.
 
         Raises
         ------
@@ -265,6 +268,25 @@ class Evaluator:
                 ]
             )
             summary_df = pd.concat([summary_df, timeout_row], ignore_index=True)
+
+        pre_score, pre_buckets = self.pre_evaluation_score(results_df)
+        pre_row = pd.DataFrame(
+            [
+                {
+                    "level": "pre_evaluation",
+                    "name": "SCORE",
+                    "accuracy": pre_score,
+                    "ci_low": float("nan"),
+                    "ci_high": float("nan"),
+                    "count": len(pre_buckets),
+                }
+            ]
+        )
+        summary_df = pd.concat([summary_df, pre_row], ignore_index=True)
+        logger.info(
+            f"Pre-evaluation score: {pre_score:.3f} "
+            f"(mean over {len(pre_buckets)} group×distribution buckets)."
+        )
 
         n_correct = int(results_df["correctness"].sum())
         n_total = len(results_df)
@@ -369,6 +391,76 @@ class Evaluator:
             "correctness": correct,
         }
 
+    @staticmethod
+    def _to_group(val: str) -> str:
+        """Map a primary capability value to its top-level group value."""
+        try:
+            return Capability(val).group.value
+        except ValueError:
+            return val
+
+    def pre_evaluation_score(
+        self, results_df: pd.DataFrame
+    ) -> tuple[float, pd.DataFrame]:
+        """Compute the pre-evaluation phase score from per-question results.
+
+        The score is the unweighted mean over up to ten buckets: each of the
+        five capability groups (derived from the ``primary`` capability),
+        evaluated independently for in-distribution (``ood == False``) and
+        out-of-distribution (``ood == True``) questions.  Each bucket's accuracy
+        is the flat per-question mean of ``correctness``; empty buckets are
+        skipped.  Missing and timed-out answers already carry
+        ``correctness == False`` in *results_df*, so they count as incorrect.
+
+        Parameters
+        ----------
+        results_df : pd.DataFrame
+            Per-question results as returned by :meth:`run` (requires the
+            ``primary``, ``ood``, and ``correctness`` columns).
+
+        Returns
+        -------
+        score : float
+            Mean accuracy over the populated group×distribution buckets, or
+            ``nan`` when *results_df* is empty.
+        buckets_df : pd.DataFrame
+            Per-bucket breakdown with columns ``group``, ``ood``, ``accuracy``,
+            and ``count`` (one row per populated bucket).
+        """
+        bucket_cols = ["group", "ood", "accuracy", "count"]
+        if results_df.empty:
+            return float("nan"), pd.DataFrame(columns=bucket_cols)
+
+        df = results_df.copy()
+        df["group"] = df["primary"].apply(self._to_group)
+
+        rows: list[dict[str, Any]] = []
+        for grp in sorted(df["group"].unique()):
+            for ood in (False, True):
+                bucket = df[(df["group"] == grp) & (df["ood"] == ood)]
+                if bucket.empty:
+                    continue
+                rows.append(
+                    {
+                        "group": str(grp),
+                        "ood": ood,
+                        "accuracy": float(bucket["correctness"].mean()),
+                        "count": len(bucket),
+                    }
+                )
+        buckets_df = pd.DataFrame(rows, columns=bucket_cols)
+
+        expected = 2 * len(Capability.groups())
+        if len(buckets_df) < expected:
+            logger.warning(
+                f"Pre-evaluation score: only {len(buckets_df)}/{expected} "
+                "group×distribution buckets are populated; averaging over the "
+                "populated buckets."
+            )
+
+        score = float(buckets_df["accuracy"].mean())
+        return score, buckets_df
+
     def _hierarchical_summary(self, df: pd.DataFrame) -> pd.DataFrame:
         """Compute hierarchical accuracy via two-level bootstrapped aggregation.
 
@@ -420,14 +512,8 @@ class Evaluator:
                 )
             return point_mean, float(np.percentile(boots, 2.5)), float(np.percentile(boots, 97.5))
 
-        def _to_group(val: str) -> str:
-            try:
-                return Capability(val).group.value
-            except ValueError:
-                return val
-
         df = df.copy()
-        df["group"] = df["primary"].apply(_to_group)
+        df["group"] = df["primary"].apply(self._to_group)
 
         rows: list[dict[str, Any]] = []
 
