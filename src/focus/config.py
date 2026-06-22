@@ -20,12 +20,12 @@ from focus.enums import Track
 
 FOCUS_DATASETS = {
     "heico": "orena-dkfz/heico-focus-vqa",
-    "lapcholy": "orena-dkfz/lapchole-focus-vqa"
+    "lapchole": "orena-dkfz/lapchole-focus-vqa"
 }
 
 DATASET_BASE_FPS = {
     "heico": 25,
-    "lapcholy": 30,
+    "lapchole": 30,
 }
 
 # Maximum allowed response latency (seconds) per challenge track.  Responses
