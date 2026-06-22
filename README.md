@@ -15,7 +15,7 @@
 
 **LapChole-FOCUS dataset**
 
-[![License: Data Usage Agreement](https://img.shields.io/badge/License-CC%20Data--Usage--Agreement%204.0-lightgrey.svg)](https://huggingface.co/datasets/orena-dkfz/lapchole-focus-vqa/blob/main/LICENSE)
+[![License: Data Usage Agreement](https://img.shields.io/badge/License-Data--Usage--Agreement-lightgrey.svg)](https://huggingface.co/datasets/orena-dkfz/lapchole-focus-vqa/blob/main/LICENSE)
 [![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Dataset-orena--dkfz%2Flapchole--focus--vqa-blue)](https://huggingface.co/datasets/orena-dkfz/lapchole-focus-vqa)
 
 
@@ -44,16 +44,6 @@ FOCUS offers three participation tracks, each requiring a different type of visu
 | **PROCEDURE** | `Track.PROCEDURE` | Up to full video | 30 s | Answer questions that may require reasoning over an entire surgical procedure, including events that happened well before or after the queried moment. |
 
 Participants may enter any subset of tracks. Each track is evaluated independently with the same hierarchical capability taxonomy.
-
-Each track has a **maximum response latency**: a response whose `latency` exceeds the limit is scored as incorrect. Enforce it by passing the track to the evaluator, which resolves the limit from `focus.config.TRACK_MAX_LATENCY`:
-
-```python
-results_df, summary_df = evaluator.run(requests, references, responses, track=Track.SEGMENT)
-# or a custom limit in seconds:
-results_df, summary_df = evaluator.run(requests, references, responses, max_latency=10.0)
-```
-
-Timed-out responses are flagged in the `timed_out` column of `results_df`, and their count is reported in the `level="latency"`, `name="timed_out"` row of `summary_df`.
 
 ## Installation
 
