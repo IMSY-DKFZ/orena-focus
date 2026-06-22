@@ -92,17 +92,26 @@ def main() -> None:
     # Open-ended and matching questions are routed to an LLM judge.
     # Pass judges=[] to skip judging and mark those questions incorrect,
     # which is useful for a quick sanity check without loading a model.
+    # Passing ``track`` enforces the track's maximum response latency
+    # (focus.config.TRACK_MAX_LATENCY): responses slower than the limit are
+    # marked incorrect.  Use ``max_latency=<seconds>`` for a custom limit.
     evaluator = Evaluator()
     results_df, summary_df = evaluator.run(
         requests=dataset.requests,
         references=dataset.references,
         responses=responses,
         output_dir=CONFIG["output_dir"],
+        track=CONFIG["track"],
     )
 
     # ── 4. Report ─────────────────────────────────────────────────────
     overall = summary_df.loc[summary_df["level"] == "overall", "accuracy"].iloc[0]
     print(f"\nOverall macro-accuracy: {overall:.1%}")
+
+    timeout_row = summary_df[summary_df["level"] == "latency"]
+    if not timeout_row.empty:
+        n_timed_out = int(timeout_row["count"].iloc[0])
+        print(f"Responses over the {CONFIG['track'].value} latency limit: {n_timed_out}")
     print()
     print(summary_df.to_string(index=False))
 

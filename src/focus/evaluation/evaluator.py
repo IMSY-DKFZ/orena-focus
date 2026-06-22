@@ -40,8 +40,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from focus.config import TRACK_MAX_LATENCY
 from focus.data.data_models import Reference, Request, Response
 from focus.data.formats import JUDGE_FORMATS
+from focus.enums import Track
 from focus.evaluation.adversarial import AdversarialDetector
 from focus.evaluation.judges import Judge, TransformersJudge, majority_vote
 from focus.taxonomy import Capability
@@ -118,6 +120,8 @@ class Evaluator:
         references: list[Reference],
         responses: list[Response],
         output_dir: Path | str | None = None,
+        max_latency: float | None = None,
+        track: Track | str | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Execute the full evaluation pipeline.
 
@@ -134,28 +138,45 @@ class Evaluator:
         output_dir : Path or str or None, optional
             If provided, ``results.csv`` and ``summary.csv`` are written to
             this directory (created if it does not exist).  Default ``None``.
+        max_latency : float or None, optional
+            Maximum allowed response latency in seconds.  Responses whose
+            :attr:`~focus.data.data_models.Response.latency` exceeds this value
+            are treated as incorrect (and flagged as timed out).  When ``None``
+            (default) no latency limit is enforced.  Mutually exclusive with
+            *track*.
+        track : Track or str or None, optional
+            Challenge track whose per-track latency limit (see
+            :data:`focus.config.TRACK_MAX_LATENCY`) should be enforced.  A
+            convenience shortcut for setting *max_latency*; passing both raises
+            ``ValueError``.
 
         Returns
         -------
         results_df : pd.DataFrame
             Per-question results with columns:
             ``qID``, ``video``, ``ood``, ``clinical``, ``primary``,
-            ``answer_format``, ``latency``, ``correctness``.
+            ``answer_format``, ``latency``, ``timed_out``, ``correctness``.
         summary_df : pd.DataFrame
             Hierarchical accuracy summary with columns:
             ``level``, ``name``, ``accuracy``, ``ci_low``, ``ci_high``,
             ``count``.  Levels: ``"leaf"``, ``"group"``, ``"answer_format"``,
-            ``"overall"``.
+            ``"overall"``.  When a latency limit is enforced, an additional
+            ``level="latency"``, ``name="timed_out"`` row reports the number of
+            responses that exceeded the limit.
 
         Raises
         ------
         ValueError
-            If more than one response is submitted for the same ``qID``, or if
-            a reference ``qID`` has no matching request.
+            If more than one response is submitted for the same ``qID``, if a
+            reference ``qID`` has no matching request, or if both *max_latency*
+            and *track* are provided.
         """
+        max_latency = self._resolve_max_latency(max_latency, track)
+
         logger.info(
             f"Starting evaluation: {len(requests)} requests, "
-            f"{len(references)} references, {len(responses)} responses."
+            f"{len(references)} references, {len(responses)} responses"
+            + (f", max_latency={max_latency:.2f}s." if max_latency is not None else ".")
         )
 
         req_map: dict[str, Request] = {r.qID: r for r in requests}
@@ -173,6 +194,7 @@ class Evaluator:
 
         rows: list[dict[str, Any]] = []
         n_missing = 0
+        n_timed_out = 0
 
         # Prepare evaluation tasks
         tasks = []
@@ -186,12 +208,15 @@ class Evaluator:
             qid: str, req: Request, ref: Reference, resp: Response | None
         ) -> tuple:
             if resp is None:
-                # (qid, req, ref, latency, correct, is_missing)
-                return (qid, req, ref, 0.0, False, True)
+                # (qid, req, ref, latency, correct, is_missing, timed_out)
+                return (qid, req, ref, 0.0, False, True, False)
 
             self._detector.check(resp.content, qID=qid)
+            if max_latency is not None and resp.latency > max_latency:
+                # Too slow — incorrect regardless of content; skip evaluation.
+                return (qid, req, ref, resp.latency, False, False, True)
             correct = self._evaluate_single(req, ref, resp)
-            return (qid, req, ref, resp.latency, correct, False)
+            return (qid, req, ref, resp.latency, correct, False, False)
 
         with ThreadPoolExecutor(max_workers=self._num_workers) as executor:
             futures = [
@@ -200,21 +225,46 @@ class Evaluator:
             ]
 
             for future in futures:
-                qid, req, ref, latency, correct, is_missing = future.result()
+                qid, req, ref, latency, correct, is_missing, timed_out = future.result()
                 if is_missing:
                     n_missing += 1
                     logger.debug(f"[{qid}] no response — marking incorrect.")
+                elif timed_out:
+                    n_timed_out += 1
+                    logger.debug(
+                        f"[{qid}] latency {latency:.2f}s > {max_latency:.2f}s "
+                        "— marking incorrect (timed out)."
+                    )
                 else:
                     logger.debug(f"[{qid}] correct={correct}, latency={latency:.2f}s.")
-                rows.append(self._make_row(qid, req, ref, latency, correct))
+                rows.append(self._make_row(qid, req, ref, latency, correct, timed_out))
 
         if n_missing:
             logger.warning(
                 f"{n_missing}/{len(ref_map)} question(s) had no response and were marked incorrect."
             )
+        if n_timed_out:
+            logger.warning(
+                f"{n_timed_out}/{len(ref_map)} response(s) exceeded the "
+                f"{max_latency:.2f}s latency limit and were marked incorrect."
+            )
 
         results_df = pd.DataFrame(rows)
         summary_df = self._hierarchical_summary(results_df)
+        if max_latency is not None:
+            timeout_row = pd.DataFrame(
+                [
+                    {
+                        "level": "latency",
+                        "name": "timed_out",
+                        "accuracy": float("nan"),
+                        "ci_low": float("nan"),
+                        "ci_high": float("nan"),
+                        "count": n_timed_out,
+                    }
+                ]
+            )
+            summary_df = pd.concat([summary_df, timeout_row], ignore_index=True)
 
         n_correct = int(results_df["correctness"].sum())
         n_total = len(results_df)
@@ -281,8 +331,31 @@ class Evaluator:
     # ── helpers ──────────────────────────────────────────────────────
 
     @staticmethod
+    def _resolve_max_latency(
+        max_latency: float | None, track: Track | str | None
+    ) -> float | None:
+        """Resolve the effective latency limit from *max_latency* and *track*.
+
+        Returns *max_latency* directly when *track* is ``None``.  When *track*
+        is given, looks up its limit in :data:`focus.config.TRACK_MAX_LATENCY`;
+        passing both *max_latency* and *track* is ambiguous and raises.
+        """
+        if track is None:
+            return max_latency
+        if max_latency is not None:
+            raise ValueError("Pass either max_latency or track, not both.")
+        if isinstance(track, str):
+            track = Track(track)
+        return TRACK_MAX_LATENCY[track]
+
+    @staticmethod
     def _make_row(
-        qid: str, req: Request, ref: Reference, latency: float, correct: bool
+        qid: str,
+        req: Request,
+        ref: Reference,
+        latency: float,
+        correct: bool,
+        timed_out: bool = False,
     ) -> dict[str, Any]:
         return {
             "qID": qid,
@@ -292,6 +365,7 @@ class Evaluator:
             "primary": ref.primary.value,
             "answer_format": ref._format,
             "latency": latency,
+            "timed_out": timed_out,
             "correctness": correct,
         }
 

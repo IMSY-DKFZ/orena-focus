@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from focus.config import TRACK_MAX_LATENCY
+from focus.enums import Track
 from focus.evaluation.evaluator import Evaluator
 from focus.evaluation.judges import APIJudge
 from focus.taxonomy import Capability
@@ -211,6 +213,88 @@ class TestHierarchicalSummary:
 
         summary = Evaluator()._hierarchical_summary(pd.DataFrame())
         assert summary.empty
+
+
+# ── latency limits ────────────────────────────────────────────────────
+
+
+class TestEvaluatorLatency:
+    def test_no_limit_keeps_slow_correct(self):
+        req = make_request()
+        ref = make_reference(fmt="number", answer="3")
+        resp = make_response(content="3", latency=999.0)
+        results, _ = _run([req], [ref], [resp])
+        assert bool(results.loc[0, "correctness"]) is True
+        assert bool(results.loc[0, "timed_out"]) is False
+
+    def test_slow_response_marked_incorrect(self):
+        req = make_request()
+        ref = make_reference(fmt="number", answer="3")
+        resp = make_response(content="3", latency=20.0)  # correct content, too slow
+        results, _ = Evaluator().run([req], [ref], [resp], max_latency=10.0)
+        assert bool(results.loc[0, "correctness"]) is False
+        assert bool(results.loc[0, "timed_out"]) is True
+
+    def test_fast_response_unaffected(self):
+        req = make_request()
+        ref = make_reference(fmt="number", answer="3")
+        resp = make_response(content="3", latency=2.0)
+        results, _ = Evaluator().run([req], [ref], [resp], max_latency=10.0)
+        assert bool(results.loc[0, "correctness"]) is True
+        assert bool(results.loc[0, "timed_out"]) is False
+
+    def test_latency_exactly_at_limit_passes(self):
+        req = make_request()
+        ref = make_reference(fmt="number", answer="3")
+        resp = make_response(content="3", latency=10.0)
+        results, _ = Evaluator().run([req], [ref], [resp], max_latency=10.0)
+        assert bool(results.loc[0, "timed_out"]) is False
+
+    def test_track_resolves_limit(self):
+        req = make_request()
+        ref = make_reference(fmt="number", answer="3")
+        # FRAME limit is 5s; 6s is over.
+        resp = make_response(content="3", latency=TRACK_MAX_LATENCY[Track.FRAME] + 1)
+        results, _ = Evaluator().run([req], [ref], [resp], track=Track.FRAME)
+        assert bool(results.loc[0, "timed_out"]) is True
+
+    def test_track_accepts_string(self):
+        req = make_request()
+        ref = make_reference(fmt="number", answer="3")
+        resp = make_response(content="3", latency=TRACK_MAX_LATENCY[Track.FRAME] + 1)
+        results, _ = Evaluator().run([req], [ref], [resp], track="frame")
+        assert bool(results.loc[0, "timed_out"]) is True
+
+    def test_max_latency_and_track_both_raises(self):
+        req = make_request()
+        ref = make_reference()
+        resp = make_response()
+        with pytest.raises(ValueError, match="either max_latency or track"):
+            Evaluator().run([req], [ref], [resp], max_latency=5.0, track=Track.FRAME)
+
+    def test_timeout_summary_row(self):
+        req = make_request()
+        ref = make_reference(fmt="number", answer="3")
+        resp = make_response(content="3", latency=20.0)
+        _, summary = Evaluator().run([req], [ref], [resp], max_latency=10.0)
+        timeout_row = summary[(summary["level"] == "latency") & (summary["name"] == "timed_out")]
+        assert not timeout_row.empty
+        assert int(timeout_row["count"].iloc[0]) == 1
+
+    def test_no_timeout_summary_row_without_limit(self):
+        req = make_request()
+        ref = make_reference(fmt="number", answer="3")
+        resp = make_response(content="3", latency=20.0)
+        _, summary = _run([req], [ref], [resp])
+        assert summary[summary["level"] == "latency"].empty
+
+    def test_missing_response_not_timed_out(self):
+        req = make_request()
+        ref = make_reference()
+        results, summary = Evaluator().run([req], [ref], [], max_latency=10.0)
+        assert bool(results.loc[0, "timed_out"]) is False
+        timeout_row = summary[(summary["level"] == "latency") & (summary["name"] == "timed_out")]
+        assert int(timeout_row["count"].iloc[0]) == 0
 
 
 # ── API Judge Tests ───────────────────────────────────────────────────
