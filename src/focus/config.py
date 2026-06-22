@@ -16,6 +16,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from focus.enums import Track
+
 FOCUS_DATASETS = {
     "heico": "orena-dkfz/heico-focus-vqa",
     "lapcholy": "orena-dkfz/lapchole-focus-vqa"
@@ -24,6 +26,15 @@ FOCUS_DATASETS = {
 DATASET_BASE_FPS = {
     "heico": 25,
     "lapcholy": 30,
+}
+
+# Maximum allowed response latency (seconds) per challenge track.  Responses
+# slower than this limit are treated as incorrect by the Evaluator.  Resolved
+# via the ``track`` argument of :meth:`focus.evaluation.Evaluator.run`.
+TRACK_MAX_LATENCY: dict[Track, float] = {
+    Track.FRAME: 5.0,
+    Track.SEGMENT: 15.0,
+    Track.PROCEDURE: 30.0,
 }
 
 _ENV_ROOT_DIR = "FOCUS_ROOT_DIR"

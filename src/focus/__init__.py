@@ -22,13 +22,13 @@ All core types are available at the top level::
         # Enumerations
         DatasetSplit, Track,
         # Configuration
-        FocusConfig, get_config, set_config,
+        FocusConfig, get_config, set_config, TRACK_MAX_LATENCY,
         # Evaluation
         Evaluator,
     )
 """
 
-from focus.config import FocusConfig, get_config, set_config
+from focus.config import TRACK_MAX_LATENCY, FocusConfig, get_config, set_config
 from focus.data.base_dataset import FocusDataset
 from focus.data.data_models import (
     Reference,
@@ -125,6 +125,7 @@ __all__ = [
     "FocusConfig",
     "get_config",
     "set_config",
+    "TRACK_MAX_LATENCY",
     # Evaluation
     "Evaluator",
 ]
