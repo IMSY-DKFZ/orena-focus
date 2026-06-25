@@ -147,12 +147,14 @@ class Percentage(_FormatBase):
 
 @register_format
 class FOClass(_FormatBase):
-    """Accepts only strings that match a registered foreign-object class name.
+    """Accepts one or more registered foreign-object class names.
 
-    The set of valid names is determined by the *valid_names* provided at
-    construction time (case-insensitive match).  The literal string ``"none"``
-    (any capitalisation) is always accepted and normalised to ``"None"``,
-    representing the absence of any foreign object.
+    Answers may list several classes separated by commas in an order- and
+    duplicate-insensitive way, e.g. ``"Clip, Sponge"``.  Matching is
+    case-insensitive against *valid_names*.  The literal ``"none"`` (any
+    capitalisation) denotes the absence of any foreign object and must appear
+    on its own.  :meth:`read` returns a ``frozenset`` of canonical names
+    (``{FOClass.NONE}`` for "none"); comparison is exact set equality.
     """
 
     type = "fo_class"
@@ -166,19 +168,32 @@ class FOClass(_FormatBase):
         """Create an FOClass format from a list of :class:`FOType` instances."""
         return cls(valid_names=tuple(fo.name for fo in fo_types))
 
-    def verify(self, text: str) -> None:
-        if text.strip().lower() == "none":
-            return
-        lower_map = {n.lower(): n for n in self.valid_names}
-        if text.strip().lower() not in lower_map:
-            raise ValueError(f"FO class must be one of {self.valid_names} or 'none', got {text!r}")
+    @staticmethod
+    def _split(text: str) -> list[str]:
+        return [part.strip() for part in text.split(",") if part.strip()]
 
-    def read(self, text: str) -> str:
-        if text.strip().lower() == "none":
-            return self.NONE
+    def verify(self, text: str) -> None:
+        parts = self._split(text)
+        if not parts:
+            raise ValueError(f"FO class answer is empty: {text!r}")
+        lower_map = {n.lower(): n for n in self.valid_names}
+        for part in parts:
+            if part.lower() == "none":
+                if len(parts) > 1:
+                    raise ValueError(f"'none' cannot be combined with other classes: {text!r}")
+                continue
+            if part.lower() not in lower_map:
+                raise ValueError(
+                    f"FO class must be one of {self.valid_names} or 'none', got {part!r}"
+                )
+
+    def read(self, text: str) -> frozenset[str]:
         self.verify(text)
         lower_map = {n.lower(): n for n in self.valid_names}
-        return lower_map[text.strip().lower()]
+        return frozenset(
+            self.NONE if part.lower() == "none" else lower_map[part.lower()]
+            for part in self._split(text)
+        )
 
 
 @register_format

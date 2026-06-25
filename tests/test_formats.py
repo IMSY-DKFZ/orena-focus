@@ -133,11 +133,11 @@ class TestFOClass:
         self.fmt = FOClass(valid_names=("Sponge", "Clip", "Needle"))
 
     def test_read_exact(self):
-        assert self.fmt.read("Sponge") == "Sponge"
+        assert self.fmt.read("Sponge") == frozenset({"Sponge"})
 
     def test_read_case_insensitive(self):
-        assert self.fmt.read("sponge") == "Sponge"
-        assert self.fmt.read("CLIP") == "Clip"
+        assert self.fmt.read("sponge") == frozenset({"Sponge"})
+        assert self.fmt.read("CLIP") == frozenset({"Clip"})
 
     def test_verify_invalid(self):
         with pytest.raises(ValueError):
@@ -149,17 +149,48 @@ class TestFOClass:
             fmt.verify("Sponge")
 
     def test_none_answer_always_valid(self):
-        assert self.fmt.read("none") == "None"
-        assert self.fmt.read("None") == "None"
-        assert self.fmt.read("NONE") == "None"
+        assert self.fmt.read("none") == frozenset({"None"})
+        assert self.fmt.read("None") == frozenset({"None"})
+        assert self.fmt.read("NONE") == frozenset({"None"})
 
     def test_none_valid_even_with_empty_names(self):
         fmt = FOClass(valid_names=())
-        assert fmt.read("none") == "None"
+        assert fmt.read("none") == frozenset({"None"})
 
     def test_none_compare(self):
-        assert self.fmt.compare("None", "None")
-        assert not self.fmt.compare("None", "Sponge")
+        assert self.fmt.compare(frozenset({"None"}), frozenset({"None"}))
+        assert not self.fmt.compare(frozenset({"None"}), frozenset({"Sponge"}))
+
+
+    # ── multi-class-behavior ────────────────────────────────────────────────────────
+
+
+    def test_read_multi_class(self):
+        assert self.fmt.read("Clip, Sponge") == frozenset({"Clip", "Sponge"})
+
+    def test_read_multi_class_order_independent(self):
+        assert self.fmt.read("Sponge, Clip") == self.fmt.read("Clip, Sponge")
+        assert self.fmt.compare(
+            self.fmt.read("Sponge, Clip"), self.fmt.read("Clip, Sponge")
+        )
+
+    def test_read_multi_class_dedups_and_normalises(self):
+        assert self.fmt.read("clip, CLIP, sponge") == frozenset({"Clip", "Sponge"})
+
+    def test_compare_distinguishes_subset(self):
+        assert not self.fmt.compare(
+            self.fmt.read("Clip"), self.fmt.read("Clip, Sponge")
+        )
+
+    def test_none_cannot_combine_with_class(self):
+        with pytest.raises(ValueError):
+            self.fmt.verify("none, Clip")
+
+    def test_empty_answer_invalid(self):
+        with pytest.raises(ValueError):
+            self.fmt.verify("")
+        with pytest.raises(ValueError):
+            self.fmt.verify(" , ")
 
 
 # ── OpenEnded ────────────────────────────────────────────────────────

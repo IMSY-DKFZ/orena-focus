@@ -118,7 +118,7 @@ Five capability groups, each composed of leaf capabilities assigned to questions
 | `Binary` | `"yes"` / `"no"` | `bool` |
 | `Number` | Non-negative integer strings | `int` |
 | `Percentage` | Numeric percentage strings | `float` |
-| `FOClass` | Registered FO class names | `str` |
+| `FOClass` | One or more registered FO class names (comma-separated) | `frozenset[str]` |
 | `OpenEnded` | Free text (≤ 300 chars) | `str` |
 | `Matching` | Regex-validated text | `str` |
 | `MultipleChoice` | One of predefined options | `str` |
