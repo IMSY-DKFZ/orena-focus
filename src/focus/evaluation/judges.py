@@ -155,7 +155,7 @@ class TransformersJudge(Judge):
         HuggingFace model identifier.  Default ``"Qwen/Qwen3.5-4B"``.
     device : str, optional
         Torch device string (``"cpu"``, ``"cuda"``, ``"cuda:0"``, …).
-        Default ``"cpu"``.
+        Default ``"cpu"``. Non cpu devives require to install accelerate. 
     max_new_tokens : int, optional
         Upper bound on generated tokens.  The judge response is a single word,
         so a small value (default ``8``) is sufficient.
@@ -172,13 +172,14 @@ class TransformersJudge(Judge):
         device: str = "cpu",
         max_new_tokens: int = 8,
     ) -> None:
-        try:
-            from transformers import AutoModelForCausalLM, AutoTokenizer
-        except ImportError:
-            raise ImportError(
-                "TransformersJudge requires the 'transformers' package. "
-                "Install with: pip install focus-challenge[eval]"
-            ) from None
+        if device != "cpu":
+            try:
+                import accelerate 
+            except ImportError:
+                raise ImportError(
+                    "For non-cpu judges we recommend the 'accelerate' package. "
+                    "Install with: pip install accelerate"
+                ) from None
 
         self._model_name = model_name
         self._device = device
