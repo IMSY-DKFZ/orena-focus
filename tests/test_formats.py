@@ -248,9 +248,9 @@ class TestMultipleChoice:
 
 
 class TestTime:
-    def test_read_returns_timedelta(self):
+    def test_read_returns_timedelta_tuple(self):
         result = Time().read("01:23:45")
-        assert result == timedelta(hours=1, minutes=23, seconds=45)
+        assert result == (timedelta(hours=1, minutes=23, seconds=45),)
 
     def test_verify_invalid_format(self):
         with pytest.raises(ValueError):
@@ -266,15 +266,62 @@ class TestTime:
 
     def test_compare_within_threshold(self):
         fmt = Time(threshold_seconds=5.0)
-        a = timedelta(hours=1, minutes=0, seconds=0)
-        b = timedelta(hours=1, minutes=0, seconds=4)
+        a = (timedelta(hours=1, minutes=0, seconds=0),)
+        b = (timedelta(hours=1, minutes=0, seconds=4),)
         assert fmt.compare(a, b)
 
     def test_compare_outside_threshold(self):
         fmt = Time(threshold_seconds=5.0)
-        a = timedelta(hours=1, minutes=0, seconds=0)
-        b = timedelta(hours=1, minutes=0, seconds=6)
+        a = (timedelta(hours=1, minutes=0, seconds=0),)
+        b = (timedelta(hours=1, minutes=0, seconds=6),)
         assert not fmt.compare(a, b)
 
     def test_compare_non_timedelta(self):
         assert not Time().compare("string", "string")
+        assert not Time().compare(("string",), ("string",))
+
+
+    # ── multi-time-behavior ─────────────────────────────────────────────────────
+
+
+    def test_read_multi_time(self):
+        assert Time().read("00:12:30, 00:47:05") == (
+            timedelta(minutes=12, seconds=30),
+            timedelta(minutes=47, seconds=5),
+        )
+
+    def test_read_multi_time_whitespace_tolerant(self):
+        assert Time().read(" 00:12:30 ,00:47:05 ") == Time().read("00:12:30, 00:47:05")
+
+    def test_read_multi_time_sorted_chronologically(self):
+        assert Time().read("00:47:05, 00:12:30") == Time().read("00:12:30, 00:47:05")
+
+    def test_compare_multi_time_exact(self):
+        fmt = Time(threshold_seconds=5.0)
+        assert fmt.compare(fmt.read("00:12:30, 00:47:05"), fmt.read("00:12:30, 00:47:05"))
+
+    def test_compare_multi_time_within_threshold(self):
+        fmt = Time(threshold_seconds=5.0)
+        assert fmt.compare(fmt.read("00:12:30, 00:47:05"), fmt.read("00:12:34, 00:47:01"))
+
+    def test_compare_multi_time_outside_threshold(self):
+        fmt = Time(threshold_seconds=5.0)
+        assert not fmt.compare(fmt.read("00:12:30, 00:47:05"), fmt.read("00:12:30, 00:47:11"))
+
+    def test_compare_multi_time_order_independent(self):
+        fmt = Time(threshold_seconds=5.0)
+        assert fmt.compare(fmt.read("00:47:05, 00:12:30"), fmt.read("00:12:30, 00:47:05"))
+
+    def test_compare_count_mismatch(self):
+        fmt = Time(threshold_seconds=5.0)
+        assert not fmt.compare(fmt.read("00:12:30"), fmt.read("00:12:30, 00:47:05"))
+
+    def test_verify_invalid_part(self):
+        with pytest.raises(ValueError):
+            Time().verify("00:12:30, 1:2:3")
+
+    def test_empty_answer_invalid(self):
+        with pytest.raises(ValueError):
+            Time().verify("")
+        with pytest.raises(ValueError):
+            Time().verify(" , ")
