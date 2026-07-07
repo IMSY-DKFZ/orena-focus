@@ -13,7 +13,7 @@ Usage::
     fmt.read("maybe")          # raises ValueError
 
     fmt = Time(threshold_seconds=5.0)
-    fmt.read("01:23:45")       # timedelta(hours=1, minutes=23, seconds=45)
+    fmt.read("01:23:45")       # (timedelta(hours=1, minutes=23, seconds=45),)
 """
 
 from __future__ import annotations
@@ -251,10 +251,16 @@ class MultipleChoice(OpenEnded):
 
 @register_format
 class Time(_FormatBase):
-    """Accepts ``hh:mm:ss`` timestamps, returns :class:`~datetime.timedelta`.
+    """Accepts one or more ``hh:mm:ss`` timestamps, returns a tuple of
+    :class:`~datetime.timedelta`.
 
-    An *acceptance threshold* (in seconds) is used during evaluation to allow
-    for temporal annotation uncertainty.
+    Answers may list several timestamps separated by commas, e.g.
+    ``"00:12:30, 00:47:05"``.  :meth:`read` returns a chronologically sorted
+    ``tuple`` of timedeltas (duplicates are kept, as each listed time point
+    counts).  Comparison requires the same number of timestamps on both
+    sides and aligns them chronologically; every aligned pair must lie
+    within the *acceptance threshold* (in seconds) used during evaluation
+    to allow for temporal annotation uncertainty.
     """
 
     type = "time"
@@ -262,27 +268,45 @@ class Time(_FormatBase):
     def __init__(self, threshold_seconds: float = 5.0):
         self.threshold_seconds = threshold_seconds
 
-    def verify(self, text: str) -> None:
-        stripped = text.strip()
-        if not re.fullmatch(r"\d{2}:\d{2}:\d{2}", stripped):
-            raise ValueError(f"Time format requires hh:mm:ss, got {text!r}")
-        _, m, s = (int(p) for p in stripped.split(":"))
-        if not (0 <= m < 60 and 0 <= s < 60):
-            raise ValueError(
-                f"Invalid time components in {text!r}: "
-                f"minutes ({m}) and seconds ({s}) must be in [0, 60)"
-            )
+    @staticmethod
+    def _split(text: str) -> list[str]:
+        return [part.strip() for part in text.split(",") if part.strip()]
 
-    def read(self, text: str) -> timedelta:
+    def verify(self, text: str) -> None:
+        parts = self._split(text)
+        if not parts:
+            raise ValueError(f"Time answer is empty: {text!r}")
+        for part in parts:
+            if not re.fullmatch(r"\d{2}:\d{2}:\d{2}", part):
+                raise ValueError(f"Time format requires hh:mm:ss, got {part!r}")
+            _, m, s = (int(p) for p in part.split(":"))
+            if not (0 <= m < 60 and 0 <= s < 60):
+                raise ValueError(
+                    f"Invalid time components in {part!r}: "
+                    f"minutes ({m}) and seconds ({s}) must be in [0, 60)"
+                )
+
+    def read(self, text: str) -> tuple[timedelta, ...]:
         self.verify(text)
-        h, m, s = (int(p) for p in text.strip().split(":"))
-        return timedelta(hours=h, minutes=m, seconds=s)
+        return tuple(
+            sorted(
+                timedelta(hours=int(h), minutes=int(m), seconds=int(s))
+                for h, m, s in (part.split(":") for part in self._split(text))
+            )
+        )
 
     def compare(self, answer: Any, prediction: Any) -> bool:
-        """True if *prediction* is within the acceptance threshold of *answer*."""
-        if not isinstance(answer, timedelta) or not isinstance(prediction, timedelta):
+        """True if *prediction* matches *answer* pairwise within the acceptance threshold."""
+        if not isinstance(answer, tuple) or not isinstance(prediction, tuple):
             return False
-        return abs((answer - prediction).total_seconds()) <= self.threshold_seconds
+        if len(answer) != len(prediction):
+            return False
+        if not all(isinstance(v, timedelta) for v in answer + prediction):
+            return False
+        return all(
+            abs((a - p).total_seconds()) <= self.threshold_seconds
+            for a, p in zip(sorted(answer), sorted(prediction))
+        )
 
 
 # ── type alias ───────────────────────────────────────────────────────

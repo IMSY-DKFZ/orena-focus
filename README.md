@@ -122,7 +122,7 @@ Five capability groups, each composed of leaf capabilities assigned to questions
 | `OpenEnded` | Free text (≤ 300 chars) | `str` |
 | `Matching` | Regex-validated text | `str` |
 | `MultipleChoice` | One of predefined options | `str` |
-| `Time` | `hh:mm:ss` timestamps | `timedelta` |
+| `Time` | One or more `hh:mm:ss` timestamps (comma-separated) | `tuple[timedelta, ...]` |
 
 ## Datasets
 
