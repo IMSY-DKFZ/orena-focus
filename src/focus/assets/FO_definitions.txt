@@ -66,3 +66,9 @@ A screen-like patch that surgeons use to reinforce a weak area in the body's
 muscle wall. This differs from a sponge which appears more like a tightly woven
 cloth. It is an implantable foreign body that is not removed at the end of the
 surgery.
+
+Absorbable Hemostatic Agent
+---------------------------
+A resorbable material applied to a bleeding surface to promote clotting,
+intended to be left in the body and absorbed. Typically appears as a white or
+pale-yellow frizzy mesh.

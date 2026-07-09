@@ -10,6 +10,7 @@ All core types are available at the top level::
         # Foreign object types
         FOType, FO_DEFINITION, SPONGE, CLIP, SPECIMEN_BAG, SILICONE_LOOP,
         EXTERNAL_DRAIN, NEEDLE, GALLSTONE, SPECIMEN, MESH,
+        ABSORBABLE_HEMOSTATIC_AGENT,
         # Answer formats
         Binary, Number, FOClass, OpenEnded, Matching, MultipleChoice, Time, Percentage,
         get_format_class,
@@ -54,6 +55,7 @@ from focus.data.formats import (
 from focus.enums import DatasetSplit, Track
 from focus.evaluation import Evaluator
 from focus.foreign_objects import (
+    ABSORBABLE_HEMOSTATIC_AGENT,
     CLIP,
     EXTERNAL_DRAIN,
     FO_DEFINITION,
@@ -69,7 +71,7 @@ from focus.foreign_objects import (
 )
 from focus.taxonomy import Capability
 
-__version__ = "0.3.3"
+__version__ = "0.3.4"
 
 import logging as _logging
 
@@ -96,6 +98,7 @@ __all__ = [
     "GALLSTONE",
     "SPECIMEN",
     "MESH",
+    "ABSORBABLE_HEMOSTATIC_AGENT",
     # Answer formats
     "Binary",
     "Number",

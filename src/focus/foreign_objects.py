@@ -1,7 +1,7 @@
 """Foreign object type definitions for the FOCUS dataset(s) and challenge.
 
 This module defines the :class:`FOType` descriptor and ships predefined instances for the
-nine core object classes used in the dataset and challenge.
+ten core object classes used in the dataset and challenge.
 
 NOTE: During the test phase additional foreign object types are possible. They will be provided as
 part of the available meta data.
@@ -14,7 +14,7 @@ Usage::
     SPONGE.description             # Full description
     FOType.by_name("Clip")         # Look up by display name
     FOType.by_slug("mesh")         # Look up by machine-friendly ID
-    FOType.all_defaults()          # tuple of all 9 predefined types
+    FOType.all_defaults()          # tuple of all 10 predefined types
     FOType.names()                 # display names
 """
 
@@ -167,7 +167,7 @@ class FOType:
         Returns
         -------
         tuple[FOType, ...]
-            Tuple of all 9 core foreign object types.
+            Tuple of all 10 core foreign object types.
         """
         return tuple(cls._registry.values())
 
@@ -264,5 +264,14 @@ MESH = FOType(
         "body's muscle wall. This differs from a sponge which appears more like a tightly "
         "woven cloth. It is an implantable foreign body that is not removed at the end of "
         "the surgery."
+    ),
+)
+
+ABSORBABLE_HEMOSTATIC_AGENT = FOType(
+    name="Absorbable Hemostatic Agent",
+    description=(
+        "A resorbable material applied to a bleeding surface to promote clotting, intended "
+        "to be left in the body and absorbed. Typically appears as a white or pale-yellow "
+        "frizzy mesh."
     ),
 )
