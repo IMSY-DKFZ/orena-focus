@@ -33,6 +33,7 @@ import requests
 
 from focus.data.data_models import Request
 from focus.foreign_objects import FO_DEFINITIONS_FILE
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 _FO_DEFINITIONS = FO_DEFINITIONS_FILE.read_text()
 
