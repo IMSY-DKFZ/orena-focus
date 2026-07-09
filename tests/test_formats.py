@@ -16,6 +16,7 @@ from focus.data.formats import (
     get_format_class,
     ts_to_seconds,
 )
+from focus.foreign_objects import FOType
 
 # ── ts_to_seconds ────────────────────────────────────────────────────
 
@@ -191,6 +192,20 @@ class TestFOClass:
             self.fmt.verify("")
         with pytest.raises(ValueError):
             self.fmt.verify(" , ")
+
+
+class TestFOClassDefaultRegistry:
+    """The default FOClass (valid_names=FOType.names()) is the format built in
+    evaluation. This guards the registry it reads from, which per-class tests
+    against an explicit valid_names cannot."""
+
+    def setup_method(self):
+        self.fmt = FOClass()  # default valid_names — the real evaluation path
+
+    def test_every_registered_class_is_accepted(self):
+        # Also guards that any newly added core class is wired into the registry.
+        for name in FOType.names():
+            assert self.fmt.read(name) == frozenset({name})
 
 
 # ── OpenEnded ────────────────────────────────────────────────────────
