@@ -126,7 +126,11 @@ class Number(_FormatBase):
 
 @register_format
 class Percentage(_FormatBase):
-    """Accepts percentage-style numeric answers such as 50%, returns a float."""
+    """Accepts percentage-style numeric answers such as 50%, returns a float.
+
+    Comparison allows an absolute tolerance of ``threshold_pp`` percentage
+    points (default ±5.0).
+    """
 
     type = "percentage"
 
@@ -142,7 +146,7 @@ class Percentage(_FormatBase):
         return float(re.sub(r"\s*%\s*$", "", text.strip()))
 
     def compare(self, answer: Any, prediction: Any) -> bool:
-        return isclose(float(answer), float(prediction), rel_tol=0.0, abs_tol=1e-9)
+        return abs(float(answer) - float(prediction)) <= float(self.threshold_pp)
 
 
 @register_format

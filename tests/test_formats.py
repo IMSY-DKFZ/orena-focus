@@ -120,10 +120,17 @@ class TestPercentage:
         with pytest.raises(ValueError):
             Percentage().verify("not a number")
 
-    def test_compare_exact(self):
+    def test_compare_within_tolerance(self):
         fmt = Percentage()
         assert fmt.compare(50.0, 50.0)
-        assert not fmt.compare(50.0, 51.0)
+        assert fmt.compare(50.0, 51.0)
+        assert fmt.compare(46.67, 45.0)
+        assert not fmt.compare(50.0, 55.1)
+
+    def test_compare_custom_threshold(self):
+        fmt = Percentage(threshold_pp=0.0)
+        assert fmt.compare(50.0, 50.0)
+        assert not fmt.compare(50.0, 50.5)
 
 
 # ── FOClass ──────────────────────────────────────────────────────────
