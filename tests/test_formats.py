@@ -347,3 +347,40 @@ class TestTime:
             Time().verify("")
         with pytest.raises(ValueError):
             Time().verify(" , ")
+
+
+# ── trailing full stop ───────────────────────────────────────────────
+
+
+class TestTrailingFullStop:
+    def test_binary(self):
+        assert Binary().read("Yes.") is True
+        assert Binary().read("no. ") is False
+
+    def test_number(self):
+        assert Number().read("3.") == 3
+
+    def test_number_float_still_invalid(self):
+        with pytest.raises(ValueError):
+            Number().verify("3.0")
+
+    def test_percentage(self):
+        assert Percentage().read("50%.") == 50.0
+        assert Percentage().read("12.5.") == 12.5
+
+    def test_fo_class(self):
+        fmt = FOClass(valid_names=("Clip", "Sponge"))
+        assert fmt.read("Clip.") == frozenset({"Clip"})
+        assert fmt.read("Clip, Sponge.") == frozenset({"Clip", "Sponge"})
+        assert fmt.read("None.") == frozenset({FOClass.NONE})
+
+    def test_time(self):
+        assert Time().read("00:12:30.") == (timedelta(minutes=12, seconds=30),)
+        assert Time().read("00:00:05, 00:12:30.") == (
+            timedelta(seconds=5),
+            timedelta(minutes=12, seconds=30),
+        )
+
+    def test_only_one_full_stop_removed(self):
+        with pytest.raises(ValueError):
+            Binary().verify("yes..")

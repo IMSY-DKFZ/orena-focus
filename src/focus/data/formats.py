@@ -35,6 +35,18 @@ def ts_to_seconds(ts: str) -> float:
     return int(h) * 3600 + int(m) * 60 + int(s)
 
 
+def normalize(text: str) -> str:
+    """Strip surrounding whitespace and a single trailing full stop.
+
+    Models frequently end short answers with a period (e.g. ``"yes."`` or
+    ``"00:12:30."``), which would otherwise fail strict format verification.
+    """
+    text = text.strip()
+    if text.endswith("."):
+        text = text[:-1].rstrip()
+    return text
+
+
 # ── base ─────────────────────────────────────────────────────────────
 
 
@@ -101,12 +113,12 @@ class Binary(_FormatBase):
     type = "binary"
 
     def verify(self, text: str) -> None:
-        if text.strip().lower() not in ("yes", "no"):
+        if normalize(text).lower() not in ("yes", "no"):
             raise ValueError(f"Binary format requires 'yes' or 'no', got {text!r}")
 
     def read(self, text: str) -> bool:
         self.verify(text)
-        return text.strip().lower() == "yes"
+        return normalize(text).lower() == "yes"
 
 
 @register_format
@@ -116,12 +128,12 @@ class Number(_FormatBase):
     type = "number"
 
     def verify(self, text: str) -> None:
-        if not text.strip().isdigit():
+        if not normalize(text).isdigit():
             raise ValueError(f"Number format requires a non-negative integer, got {text!r}")
 
     def read(self, text: str) -> int:
         self.verify(text)
-        return int(text.strip())
+        return int(normalize(text))
 
 
 @register_format
@@ -138,12 +150,12 @@ class Percentage(_FormatBase):
         self.threshold_pp = threshold_pp
 
     def verify(self, text: str) -> None:
-        if not re.fullmatch(r"\d+(?:\.\d+)?\s*%?", text.strip()):
+        if not re.fullmatch(r"\d+(?:\.\d+)?\s*%?", normalize(text)):
             raise ValueError(f"Percentage format requires a non-negative number, got {text!r}")
 
     def read(self, text: str) -> float:
         self.verify(text)
-        return float(re.sub(r"\s*%\s*$", "", text.strip()))
+        return float(re.sub(r"\s*%\s*$", "", normalize(text)))
 
     def compare(self, answer: Any, prediction: Any) -> bool:
         return abs(float(answer) - float(prediction)) <= float(self.threshold_pp)
@@ -174,7 +186,7 @@ class FOClass(_FormatBase):
 
     @staticmethod
     def _split(text: str) -> list[str]:
-        return [part.strip() for part in text.split(",") if part.strip()]
+        return [part.strip() for part in normalize(text).split(",") if part.strip()]
 
     def verify(self, text: str) -> None:
         parts = self._split(text)
@@ -274,7 +286,7 @@ class Time(_FormatBase):
 
     @staticmethod
     def _split(text: str) -> list[str]:
-        return [part.strip() for part in text.split(",") if part.strip()]
+        return [part.strip() for part in normalize(text).split(",") if part.strip()]
 
     def verify(self, text: str) -> None:
         parts = self._split(text)
