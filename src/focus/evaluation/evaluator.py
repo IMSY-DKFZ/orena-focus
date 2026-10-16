@@ -353,9 +353,7 @@ class Evaluator:
     # ── helpers ──────────────────────────────────────────────────────
 
     @staticmethod
-    def _resolve_max_latency(
-        max_latency: float | None, track: Track | str | None
-    ) -> float | None:
+    def _resolve_max_latency(max_latency: float | None, track: Track | str | None) -> float | None:
         """Resolve the effective latency limit from *max_latency* and *track*.
 
         Returns *max_latency* directly when *track* is ``None``.  When *track*
@@ -399,9 +397,7 @@ class Evaluator:
         except ValueError:
             return val
 
-    def pre_evaluation_score(
-        self, results_df: pd.DataFrame
-    ) -> tuple[float, pd.DataFrame]:
+    def pre_evaluation_score(self, results_df: pd.DataFrame) -> tuple[float, pd.DataFrame]:
         """Compute the pre-evaluation phase score from per-question results.
 
         The score is the unweighted mean over up to ten buckets: each of the

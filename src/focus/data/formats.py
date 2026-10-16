@@ -21,7 +21,6 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from datetime import timedelta
-from math import isclose
 from typing import Any, Union
 
 from focus.foreign_objects import FOType

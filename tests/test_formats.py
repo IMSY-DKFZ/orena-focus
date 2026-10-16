@@ -169,26 +169,20 @@ class TestFOClass:
         assert self.fmt.compare(frozenset({"None"}), frozenset({"None"}))
         assert not self.fmt.compare(frozenset({"None"}), frozenset({"Sponge"}))
 
-
     # ── multi-class-behavior ────────────────────────────────────────────────────────
-
 
     def test_read_multi_class(self):
         assert self.fmt.read("Clip, Sponge") == frozenset({"Clip", "Sponge"})
 
     def test_read_multi_class_order_independent(self):
         assert self.fmt.read("Sponge, Clip") == self.fmt.read("Clip, Sponge")
-        assert self.fmt.compare(
-            self.fmt.read("Sponge, Clip"), self.fmt.read("Clip, Sponge")
-        )
+        assert self.fmt.compare(self.fmt.read("Sponge, Clip"), self.fmt.read("Clip, Sponge"))
 
     def test_read_multi_class_dedups_and_normalises(self):
         assert self.fmt.read("clip, CLIP, sponge") == frozenset({"Clip", "Sponge"})
 
     def test_compare_distinguishes_subset(self):
-        assert not self.fmt.compare(
-            self.fmt.read("Clip"), self.fmt.read("Clip, Sponge")
-        )
+        assert not self.fmt.compare(self.fmt.read("Clip"), self.fmt.read("Clip, Sponge"))
 
     def test_none_cannot_combine_with_class(self):
         with pytest.raises(ValueError):
@@ -302,9 +296,7 @@ class TestTime:
         assert not Time().compare("string", "string")
         assert not Time().compare(("string",), ("string",))
 
-
     # ── multi-time-behavior ─────────────────────────────────────────────────────
-
 
     def test_read_multi_time(self):
         assert Time().read("00:12:30, 00:47:05") == (
