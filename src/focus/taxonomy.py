@@ -24,11 +24,11 @@ Usage::
 from __future__ import annotations
 
 import warnings
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class Capability(str, Enum):
+class Capability(StrEnum):
     """Hierarchical VQA capability taxonomy.
 
     String-valued so it serialises cleanly in JSON / Pydantic models.
