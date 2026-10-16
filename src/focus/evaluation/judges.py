@@ -30,10 +30,10 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import requests
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from focus.data.data_models import Request
 from focus.foreign_objects import FO_DEFINITIONS_FILE
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 _FO_DEFINITIONS = FO_DEFINITIONS_FILE.read_text()
 
@@ -156,7 +156,7 @@ class TransformersJudge(Judge):
         HuggingFace model identifier.  Default ``"Qwen/Qwen3.5-4B"``.
     device : str, optional
         Torch device string (``"cpu"``, ``"cuda"``, ``"cuda:0"``, …).
-        Default ``"cpu"``. Non cpu devives require to install accelerate. 
+        Default ``"cpu"``. Non cpu devives require to install accelerate.
     max_new_tokens : int, optional
         Upper bound on generated tokens.  The judge response is a single word,
         so a small value (default ``8``) is sufficient.
@@ -175,7 +175,7 @@ class TransformersJudge(Judge):
     ) -> None:
         if device != "cpu":
             try:
-                import accelerate 
+                import accelerate  # noqa: F401
             except ImportError:
                 raise ImportError(
                     "For non-cpu judges we recommend the 'accelerate' package. "

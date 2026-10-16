@@ -20,7 +20,7 @@ from focus.enums import Track
 
 FOCUS_DATASETS = {
     "heico": "orena-dkfz/heico-focus-vqa",
-    "lapchole": "orena-dkfz/lapchole-focus-vqa"
+    "lapchole": "orena-dkfz/lapchole-focus-vqa",
 }
 
 DATASET_BASE_FPS = {
