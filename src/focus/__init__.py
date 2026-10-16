@@ -71,7 +71,7 @@ from focus.foreign_objects import (
 )
 from focus.taxonomy import Capability
 
-__version__ = "0.3.6"
+__version__ = "0.4.0"
 
 import logging as _logging
 
