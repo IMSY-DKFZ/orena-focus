@@ -27,7 +27,7 @@ Python utilities for the **FOCUS datasets and challenge** — *Foreign Object Co
 
 The library provides dataset loaders, preprocessing pipelines, answer-format handling, and an evaluation framework for working with the FOCUS surgical VQA datasets. It can be used independently for research on foreign-object understanding in minimally invasive surgery, and also serves as the official toolkit for the [ORena SAVE FOCUS challenge](https://or-arena.org/) at MICCAI 2026.
 
-> **Challenge open for registration.** Submit your results and compete on the leaderboard at [orena-focus-challenge.org](https://orena-focus-challenge.org/).
+> **2026 Challenge has ended.** See the results and and the leaderboards at [orena-focus-challenge.org](https://orena-focus-challenge.org/).
 
 ![Clinical use case](https://github.com/IMSY-DKFZ/orena-focus/blob/main/src/focus/assets/motivation.png?raw=true)
 
