@@ -1,9 +1,9 @@
 """Shared enumerations for the FOCUS challenge library."""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class DatasetSplit(str, Enum):
+class DatasetSplit(StrEnum):
     """Dataset partitions used across all FOCUS datasets.
 
     Inherits from ``str`` so values can be passed directly to
@@ -15,7 +15,7 @@ class DatasetSplit(str, Enum):
     ALL = "all"
 
 
-class Track(str, Enum):
+class Track(StrEnum):
     """The three evaluation tracks of the ORena SAVE FOCUS challenge.
 
     Tracks increase in temporal and contextual complexity:
